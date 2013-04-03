@@ -28,7 +28,8 @@ object SparkBuild extends Build {
     libraryDependencies ++= Seq(
       "log4j" % "log4j" % "1.2.16",
       "org.slf4j" % "slf4j-api" % slf4jVersion,
-      "org.slf4j" % "slf4j-log4j12" % slf4jVersion
+      "org.slf4j" % "slf4j-log4j12" % slf4jVersion,
+      "com.fasterxml.jackson.module" % "jackson-module-scala" % "2.1.2"
     )
   )
 
