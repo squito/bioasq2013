@@ -20,14 +20,14 @@ object AbstractParser {
   def main(args: Array[String]) {
     val in = new GZIPInputStream(new FileInputStream(DataFiles.TrainingAbstractsGzip))
     new java.io.File(DataFiles.TrainingFeaturizedDir).mkdirs()
-    featurizeAbstracts(Source.fromInputStream(in), VectorFileSet.forDir(DataFiles.TrainingFeaturizedDir))
+    featurizeAbstracts(Source.fromInputStream(in), new VectorFileSet(DataFiles.TrainingFeaturizedDir))
   }
 
   def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
     val abstractsItr = new ItrWithLogs[Abstract](parseAbstracts(abstractSource),1e6.toInt,{
       (abs, idx) => if (idx % 1000 == 0) println(new Date() + "\t" + idx)
     })
-    FeaturizerHelper.featurizeToFiles(abstractsItr, AbstractFeaturizer, featurizationFiles)
+    FeaturizerHelper.featurizeToFiles(abstractsItr, AbstractFeaturizer, featurizationFiles, 1e5.toInt)
   }
 
   def parseAbstracts(file:String)(f: Abstract => Unit) {
