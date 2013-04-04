@@ -29,7 +29,8 @@ object SparkBuild extends Build {
       "log4j" % "log4j" % "1.2.16",
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       "org.slf4j" % "slf4j-log4j12" % slf4jVersion,
-      "com.fasterxml.jackson.module" % "jackson-module-scala" % "2.1.2"
+      "com.fasterxml.jackson.module" % "jackson-module-scala" % "2.1.2",
+      "org.sblaj" % "sblaj-core_2.9.1" % "0.1-SNAPSHOT"
     )
   )
 
