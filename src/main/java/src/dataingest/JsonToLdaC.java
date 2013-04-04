@@ -19,7 +19,7 @@ import com.google.gson.Gson;
  * Convert the Bioasq json file into lda-c format described here:
  * http://www.cs.princeton.edu/~blei/lda-c/readme.txt
  * 
- * args[0] = json file with first line "{'articles'=[" removed.
+ * args[0] = json file.
  * args[1] = filename to write documents in lda-c format to.
  * args[2] = filename to write vocabulary list to.
  * args[3] = filename to write label list to.
@@ -56,6 +56,8 @@ public class JsonToLdaC {
 		
 		try {
 			reader = new BufferedReader(new FileReader(args[0]));
+			
+			reader.readLine(); // Skip very first line. 
 			for(int i=0; i < numberArticlesToRead; i++) {
 				String line = reader.readLine();
 				if(line == null || line.equals("")) {
