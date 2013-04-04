@@ -19,10 +19,11 @@ import com.google.gson.Gson;
  * Convert the Bioasq json file into lda-c format described here:
  * http://www.cs.princeton.edu/~blei/lda-c/readme.txt
  * 
- * Note, I have tested this on a smaller subset of the big 16gig json
- * file. I created a smaller one with 10,000 articles by doing
- * head -n 10000 allMeSH.json > smaller.json, and then removing the final comma and 
- * appending ]} to the final line. 
+ * args[0] = json file with first line "{'articles'=[" removed.
+ * args[1] = filename to write documents in lda-c format to.
+ * args[2] = filename to write vocabulary list to.
+ * args[3] = filename to write label list to.
+ * args[4] = how many documents to read. 
  * 
  * @author kassak
  *
@@ -44,19 +45,30 @@ public class JsonToLdaC {
 	 */
 	public static void main(String[] args) {
 		
+		int numberArticlesToRead = Integer.parseInt(args[4]);
 		Gson gson = new Gson();
 		BufferedWriter bw = null;
 		BufferedWriter vocabWriter = null;
 		BufferedWriter labelWriter = null;
-		try {
-			BufferedReader reader = new BufferedReader(new FileReader(args[0]));
+		BufferedReader reader = null;
 		
-			Documents documents = gson.fromJson(reader, Documents.class);
+		Documents documents = new Documents();
+		
+		try {
+			reader = new BufferedReader(new FileReader(args[0]));
+			for(int i=0; i < numberArticlesToRead; i++) {
+				String line = reader.readLine();
+				if(line == null || line.equals("")) {
+					System.out.println("End of input reached, " + i + " documents successfully read" );
+					break;
+				}
+				
+				documents.articles.add( gson.fromJson(line.replaceAll(",$", ""), Article.class) );
+			}
 			
 			bw = new BufferedWriter(new FileWriter(args[1]));
 			vocabWriter = new BufferedWriter(new FileWriter(args[2]));
-			labelWriter = new BufferedWriter(new FileWriter(args[3]));
-			
+			labelWriter = new BufferedWriter(new FileWriter(args[3]));			
 			FormatConverter converter = new FormatConverter(documents);
 			converter.convert(bw, vocabWriter, labelWriter);
 			
@@ -65,9 +77,12 @@ public class JsonToLdaC {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
-            //Close the BufferedWriters
+            //Close the BufferedWriters and BufferedReaders
             try {
-                if (bw != null) {
+            	if (reader != null) {
+            		reader.close();
+            	}
+                if (bw != null) { 
                     bw.flush();
                     bw.close();
                 }
@@ -90,7 +105,7 @@ public class JsonToLdaC {
 
 	// The classes below define the java object representation of the json. 
 	private static class Documents {
-		List<Article> articles;
+		public List<Article> articles = new ArrayList<Article>();
 	
 		public void print() {
 			
