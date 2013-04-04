@@ -66,6 +66,10 @@ public class JsonToLdaC {
 				}
 				
 				documents.articles.add( gson.fromJson(line.replaceAll(",$", ""), Article.class) );
+				
+				if(i % 10000 == 0) {
+					System.out.println("Read " + i + " of " + numberArticlesToRead);
+				}
 			}
 			
 			bw = new BufferedWriter(new FileWriter(args[1]));
@@ -185,6 +189,9 @@ public class JsonToLdaC {
 				}
 				
 			}
+			
+			System.out.println("Successfully identified vocabulary and labels");
+			
 			// Now we know how many regular vocabulary words there will be, so 
 			// we need to renumber the label vocab. 
 			int Nvocab = vocab.size();
