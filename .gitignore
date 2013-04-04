@@ -14,3 +14,13 @@ project/plugins/project/
 .scala_dependencies
 .idea
 *.iml
+
+# Eclipse project 
+.project
+.classpath
+
+# Mac dot file
+.DS_STORE
+
+# tilde files from emacs
+*~
