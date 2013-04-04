@@ -24,8 +24,8 @@ object AbstractParser {
   }
 
   def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
-    val abstractsItr = new ItrWithLogs[Abstract](parseAbstracts(abstractSource),1e6.toInt,{
-      (abs, idx) => if (idx % 1000 == 0) println(new Date() + "\t" + idx)
+    val abstractsItr = new ItrWithLogs[Abstract](parseAbstracts(abstractSource),logF = {
+      (abs, idx) => if (idx % 10000 == 0) println(new Date() + "\t" + idx)
     })
     FeaturizerHelper.featurizeToFiles(abstractsItr, AbstractFeaturizer, featurizationFiles, 1e5.toInt)
   }
@@ -38,8 +38,8 @@ object AbstractParser {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     source.getLines().zipWithIndex.
-      filter{case (line, idx) => idx != 0 && !line.trim.equals("}")}.
-      map{ case (line, _) =>
+      filter{case (line, idx) => idx != 0 && !line.trim.equals("]}")}.
+      map{ case (line, idx) =>
         om.readValue(line, classOf[Abstract])
       }
   }
