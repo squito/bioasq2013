@@ -13,4 +13,6 @@ object DataFiles {
   val MeshNames = MeshDir + "/MeSH_name_id_mapping.txt"
   val MeshGraph = MeshDir + "/MeSH_parent_child_mapping.txt"
   val TrainingAbstractsGzip = DataDir + "/training/allMeSH.json.gz"
+
+  val TrainingFeaturizedDir = DataDir + "/training/featurized/"
 }
