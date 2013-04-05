@@ -24,3 +24,6 @@ project/plugins/project/
 
 # tilde files from emacs
 *~
+
+# R
+.Rapp.history
