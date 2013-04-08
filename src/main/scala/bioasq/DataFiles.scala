@@ -1,5 +1,7 @@
 package bioasq
 
+import org.sblaj.io.VectorFileSet
+
 object DataFiles {
 
   private val user = System.getProperty("user.name")
@@ -15,4 +17,6 @@ object DataFiles {
   val TrainingAbstractsGzip = DataDir + "/training/allMeSH.json.gz"
 
   val TrainingFeaturizedDir = DataDir + "/training/featurized/"
+  val TrainingFeaturizedFileSet = new VectorFileSet(TrainingFeaturizedDir)
+  val TrainingIntVectorFileSet = new VectorFileSet(DataDir + "/training/featurized_int")
 }
