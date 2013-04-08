@@ -30,7 +30,9 @@ object SparkBuild extends Build {
       "org.slf4j" % "slf4j-api" % slf4jVersion,
       "org.slf4j" % "slf4j-log4j12" % slf4jVersion,
       "com.fasterxml.jackson.module" % "jackson-module-scala" % "2.1.2",
-      "org.sblaj" % "sblaj-core_2.9.1" % "0.1-SNAPSHOT"
+      "org.sblaj" % "sblaj-core_2.9.1" % "0.1-SNAPSHOT",
+      "com.quantifind" % "sumac_2.9.1" % "0.1-SNAPSHOT",
+      "it.unimi.dsi" % "fastutil" % "6.4.4"  //better collections
     )
   )
 
