@@ -38,6 +38,10 @@ object AbstractParser extends ArgMain[ParserArgs]{
     if (args.enumerate) {
       VectorIO.convertToIntVectors(DataFiles.TrainingFeaturizedFileSet, DataFiles.TrainingIntVectorFileSet)
     }
+
+    if (args.dictionaryEnumerate) {
+      VectorIO.remapIntDictionary(DataFiles.TrainingFeaturizedFileSet, DataFiles.TrainingIntVectorFileSet, None)
+    }
   }
 
   def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
@@ -67,6 +71,7 @@ class ParserArgs extends FieldParsing {
   var mergeDictionary = false
   var idSet = false
   var enumerate = false
+  var dictionaryEnumerate = false
   var iterate = false
 }
 
