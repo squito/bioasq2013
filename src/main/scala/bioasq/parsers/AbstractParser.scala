@@ -11,6 +11,7 @@ import java.util.Date
 import org.sblaj.io.{DictionaryIO, VectorIO, VectorFileSet}
 import org.sblaj.featurization.{Murmur64, MurmurFeaturizer, FeaturizerHelper, BinaryFeaturizer}
 import com.quantifind.sumac.{FieldParsing, ArgMain}
+import dataingest.JsonToLdaC
 
 /**
  *
@@ -98,9 +99,22 @@ case class Abstract(
 )
 
 object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
+
+  val JOURNAL_PREFIX = "JOURNAL:"
+  val JOURNAL_WORD_PREFIX = "JOURNAL_WORDS:"
+  val MESH_PREFIX = "MESH:"
+
   override def getId(abs: Abstract) = Murmur64.hash64(abs.pmid)
   override def extractor(abs: Abstract) =
-    abs.abstractText.split("\\s").toSet ++ //unigrams
-      Set("JOURNAL:" + abs.journal) ++  //journal
-      abs.meshMajor.map{"MESH:" + _}.toSet //mesh terms
+    unigrams(abs.abstractText) ++ //unigrams
+      Set(JOURNAL_PREFIX + abs.journal) ++  //journal
+      unigrams(abs.journal).map{JOURNAL_WORD_PREFIX + _} ++ //words in journal title
+      abs.meshMajor.map{MESH_PREFIX + _}.toSet //mesh terms
+
+  def unigrams(text: String): Set[String] = {
+    text.replaceAll("[^A-Za-z0-9 ]", "").split("\\s").toSet.filterNot{w =>
+      JsonToLdaC.stopwords.contains(w) || w.length() < 2
+    }
+
+  }
 }
