@@ -30,15 +30,6 @@ import com.google.gson.Gson;
  */
 public class JsonToLdaC {
 
-	
-	static HashSet<String> stopwords = new HashSet<String>();
-	static {
-		String commaSepStopwords = "a,able,about,across,after,all,almost,also,am,among,an,and,any,are,as,at,be,because,been,but,by,can,cannot,could,dear,did,do,does,either,else,ever,every,for,from,get,got,had,has,have,he,her,hers,him,his,how,however,i,if,in,into,is,it,its,just,least,let,like,likely,may,me,might,most,must,my,neither,no,nor,not,of,off,often,on,only,or,other,our,own,rather,said,say,says,she,should,since,so,some,than,that,the,their,them,then,there,these,they,this,tis,to,too,twas,us,wants,was,we,were,what,when,where,which,while,who,whom,why,will,with,would,yet,you,your";
-		String [] sw = commaSepStopwords.split(",");
-		for(String s : sw) {
-			stopwords.add(s);
-		}
-	}
 		
 	/**
 	 * @param args
@@ -50,27 +41,11 @@ public class JsonToLdaC {
 		BufferedWriter bw = null;
 		BufferedWriter vocabWriter = null;
 		BufferedWriter labelWriter = null;
-		BufferedReader reader = null;
 		
-		Documents documents = new Documents();
+		BioasqReader bioasqReader = new BioasqReader(args[0], numberArticlesToRead);
+		List<Article> documents = bioasqReader.read();
 		
 		try {
-			reader = new BufferedReader(new FileReader(args[0]));
-			
-			reader.readLine(); // Skip very first line. 
-			for(int i=0; i < numberArticlesToRead; i++) {
-				String line = reader.readLine();
-				if(line == null || line.equals("")) {
-					System.out.println("End of input reached, " + i + " documents successfully read" );
-					break;
-				}
-				
-				documents.articles.add( gson.fromJson(line.replaceAll(",$", ""), Article.class) );
-				
-				if(i % 10000 == 0) {
-					System.out.println("Read " + i + " of " + numberArticlesToRead);
-				}
-			}
 			
 			bw = new BufferedWriter(new FileWriter(args[1]));
 			vocabWriter = new BufferedWriter(new FileWriter(args[2]));
@@ -83,11 +58,8 @@ public class JsonToLdaC {
 		} catch (IOException e) {
 			e.printStackTrace();
 		} finally {
-            //Close the BufferedWriters and BufferedReaders
+            //Close the BufferedWriters.
             try {
-            	if (reader != null) {
-            		reader.close();
-            	}
                 if (bw != null) { 
                     bw.flush();
                     bw.close();
@@ -109,52 +81,15 @@ public class JsonToLdaC {
 		
 	}
 
-	// The classes below define the java object representation of the json. 
-	private static class Documents {
-		public List<Article> articles = new ArrayList<Article>();
-	
-		public void print() {
-			
-			for(Article a : articles) {
-				System.out.println();
-				a.print();
-			}
-			
-		}
-	
-	}
-	
-	private static class Article {
 
-		String abstractText;
-		String journal;
-		List<String> meshMajor;
-		Long pmid;
-		String title;
-		String year;
-		
-		public void print() {
-			System.out.println("abstractText: " + abstractText);
-			System.out.println("journal: " + journal);
-			System.out.println("meshMajor:");
-			for(String s : meshMajor) {
-				System.out.println("    " + s);
-			}
-			System.out.println("pmid: " + pmid);
-			System.out.println("title: " + title);
-			System.out.println("year: " + year);
-		}
-		
-	}
-	
 	// Main class that converts into lda-c form
 	private static class FormatConverter {
 		
 		LinkedHashMap<String, Integer> vocab = new LinkedHashMap<String, Integer>();
 		LinkedHashMap<String, Integer> labelVocab = new LinkedHashMap<String, Integer>();
-		Documents docs;		
+		List<Article> docs;		
 		
-		public FormatConverter(Documents docs) {
+		public FormatConverter(List<Article> docs) {
 			this.docs = docs;
 		}
 		
@@ -163,12 +98,12 @@ public class JsonToLdaC {
 			// Get vocabularies into maps. 
 			int i = 0;
 			int j = 0;
-			for(Article a : docs.articles) {
+			for(Article a : docs) {
 				
 				List<String> abstractWords = abstractWords(a.abstractText);
 				for(String w : abstractWords) {
 					
-					if(stopwords.contains(w) || w.length() < 2) {
+					if(Stopwords.stopwords.contains(w) || w.length() < 2) {
 						continue;
 					}
 					
@@ -201,7 +136,7 @@ public class JsonToLdaC {
 			
 			// Write out the documents in the lda-c format.
 			// We do need to iterate through the list of documents again. 
-			for(Article a : docs.articles) {
+			for(Article a : docs) {
 				bw.write(ldaC(vocab, labelVocab, abstractWords(a.abstractText), labelWords(a.meshMajor))) ;
 				bw.newLine();
 			}
