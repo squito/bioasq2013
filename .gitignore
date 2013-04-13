@@ -28,3 +28,10 @@ bin/
 
 # R
 .Rapp.history
+
+# Left over files from p4merge
+*.BACKUP.*.java
+*.BASE.*.java
+*.LOCAL.*.java
+*.REMOTE.*.java
+*.java.orig
