@@ -6,12 +6,12 @@ import java.util.zip.GZIPInputStream
 import java.io.FileInputStream
 import bioasq.DataFiles
 import collection._
-import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import java.util.Date
 import org.sblaj.io.{DictionaryIO, VectorIO, VectorFileSet}
 import org.sblaj.featurization.{Murmur64, MurmurFeaturizer, FeaturizerHelper, BinaryFeaturizer}
-import com.quantifind.sumac.{FieldParsing, ArgMain}
+import com.quantifind.sumac.{FieldArgs, ArgMain}
 import dataingest.JsonToLdaC
+import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 /**
  *
@@ -27,21 +27,13 @@ object AbstractParser extends ArgMain[ParserArgs]{
       featurizeAbstracts(Source.fromInputStream(in), DataFiles.TrainingFeaturizedFileSet)
     }
 
-    if (args.mergeDictionary) {
-      val dictionary = DictionaryIO.buildMergedDictionary(DataFiles.TrainingFeaturizedFileSet)
-    }
-
-    if (args.idSet) {
-      val idSet = DictionaryIO.idEnumeration(DataFiles.TrainingFeaturizedFileSet)
-      println(idSet.size)
-    }
-
-    if (args.enumerate) {
-      VectorIO.convertToIntVectors(DataFiles.TrainingFeaturizedFileSet, DataFiles.TrainingIntVectorFileSet)
-    }
-
-    if (args.dictionaryEnumerate) {
-      VectorIO.remapIntDictionary(DataFiles.TrainingFeaturizedFileSet, DataFiles.TrainingIntVectorFileSet, None)
+    if (args.toIntVectors) {
+      VectorIO.convertToIntVectorsWithPredicate(
+        DataFiles.TrainingFeaturizedFileSet,
+        DataFiles.TrainingIntVectorFileSet,
+        args.minFrac,
+        AbstractFeaturizer.preserveFeaturePredication _
+      )
     }
   }
 
@@ -65,15 +57,18 @@ object AbstractParser extends ArgMain[ParserArgs]{
         om.readValue(line, classOf[Abstract])
       }
   }
+
 }
 
-class ParserArgs extends FieldParsing {
+class ParserArgs extends FieldArgs {
   var featurize = false
   var mergeDictionary = false
   var idSet = false
   var enumerate = false
   var dictionaryEnumerate = false
   var iterate = false
+  var toIntVectors = false
+  var minFrac = 1e-5
 }
 
 
@@ -112,9 +107,15 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
       abs.meshMajor.map{MESH_PREFIX + _}.toSet //mesh terms
 
   def unigrams(text: String): Set[String] = {
-    text.replaceAll("[^A-Za-z0-9 ]", "").split("\\s").toSet.filterNot{w =>
+    text.replaceAll("[^A-Za-z0-9 ]", "").split("\\s").map{_.toLowerCase}.toSet.filterNot{w =>
       JsonToLdaC.stopwords.contains(w) || w.length() < 2
     }
 
+  }
+
+  def preserveFeaturePredication(f: (String,Long)): Boolean = {
+    f._1.startsWith(JOURNAL_PREFIX) ||
+      f._1.startsWith(JOURNAL_WORD_PREFIX) ||
+      f._1.startsWith(MESH_PREFIX)
   }
 }
