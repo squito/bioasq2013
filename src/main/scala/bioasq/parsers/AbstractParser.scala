@@ -32,7 +32,7 @@ object AbstractParser extends ArgMain[ParserArgs]{
         DataFiles.TrainingFeaturizedFileSet,
         DataFiles.TrainingIntVectorFileSet,
         args.minFrac,
-        AbstractFeaturizer.preserveFeaturePredication _
+        AbstractFeaturizer.preserveFeaturePredicate _
       )
     }
   }
@@ -113,7 +113,7 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
 
   }
 
-  def preserveFeaturePredication(f: (String,Long)): Boolean = {
+  def preserveFeaturePredicate(f: (String,Long)): Boolean = {
     f._1.startsWith(JOURNAL_PREFIX) ||
       f._1.startsWith(JOURNAL_WORD_PREFIX) ||
       f._1.startsWith(MESH_PREFIX)
