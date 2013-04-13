@@ -12,11 +12,13 @@ class KNN(
     var minDistanceIdx = -1
     val sampleRow = new BaseSparseBinaryVector(matrix.colIds, 0,0)
     (0 until matrix.nRows).foreach{rowIdx =>
-      sampleRow.reset(matrix.colIds, matrix.rowStartIdx(rowIdx), matrix.rowStartIdx(rowIdx + 1))
-      val dist = distance(input, sampleRow)
-      if (dist < minDistance) {
-        minDistance = dist
-        minDistanceIdx = rowIdx
+      if (rowIdx != sampleTraingIdx) {
+        sampleRow.reset(matrix.colIds, matrix.rowStartIdx(rowIdx), matrix.rowStartIdx(rowIdx + 1))
+        val dist = distance(input, sampleRow)
+        if (dist < minDistance) {
+          minDistance = dist
+          minDistanceIdx = rowIdx
+        }
       }
     }
     minDistanceIdx
