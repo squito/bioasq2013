@@ -1,4 +1,4 @@
-package inference.variational.common;
+package main.java.inference.variational.common;
 
 import java.util.Arrays;
 import java.util.Random;

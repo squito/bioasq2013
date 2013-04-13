@@ -1,7 +1,7 @@
-package inference.variational.corrlda;
+package main.java.inference.variational.corrlda;
 
-import inference.variational.common.AlgorithmParameters;
-import inference.variational.corrlda.CorrLDAdata.Document;
+import main.java.inference.variational.common.AlgorithmParameters;
+import main.java.inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -28,6 +28,39 @@ public class CorrLDA {
 		
 	}
 
+	public static void main(String[] args) throws IOException, InputFormatException { 
+
+		if(args.length != 5) {
+			throw new RuntimeException("You need five arguments.");
+		}
+		
+		String corpusFilename = args[0];
+		String vocabFilename = args[1];
+		String labelFilename = args[2];
+		int K = Integer.parseInt( args[3] );
+		int maxIter = Integer.parseInt( args[4] );
+		int vocabSize = 0;
+		int labelSize = 0;
+
+		BufferedReader reader = null;
+		reader = new BufferedReader(new FileReader(vocabFilename));
+		while(reader.readLine() != null) {
+			vocabSize++;
+		}
+		reader.close();
+
+		reader = new BufferedReader(new FileReader(labelFilename));
+		while(reader.readLine() != null) {
+			labelSize++;
+		}
+		reader.close();
+
+		CorrLDA corrLDA = new CorrLDA(corpusFilename, vocabSize, labelSize, K, maxIter, 0.001);
+		System.out.println("Done.");
+		
+	}
+	
+	
 	private List<Document> readCorpusFile(String corpusFilename, int vocabSize, int labelSize) throws InputFormatException, IOException {
 
 		List<Document> documents = new ArrayList<Document>();
@@ -61,6 +94,7 @@ public class CorrLDA {
 					labels[i] = Integer.parseInt(stringLabels[i]);
 					
 					if(labels[i] >= labelSize) {
+						System.out.println("i: " + i + " labels[i]: " + labels[i] + " labelSize: " + labelSize);
 						throw new RuntimeException("You have a label in your document that has index bigger than the number of labels you know about.");
 					}
 				}

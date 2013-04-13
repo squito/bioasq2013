@@ -18,6 +18,7 @@ project/plugins/project/
 # Eclipse project 
 .project
 .classpath
+bin/
 
 # Mac dot file
 .DS_STORE

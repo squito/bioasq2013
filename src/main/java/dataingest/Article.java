@@ -1,4 +1,4 @@
-package dataingest;
+package main.java.dataingest;
 
 import java.util.List;
 

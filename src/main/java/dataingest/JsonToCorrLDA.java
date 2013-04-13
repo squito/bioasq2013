@@ -1,4 +1,4 @@
-package dataingest;
+package main.java.dataingest;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -57,7 +57,7 @@ public class JsonToCorrLDA {
 			}
 		}
 
-		System.out.println("Successfully wrote files");
+		System.out.println("Done.");
 	}
 
 
@@ -88,8 +88,8 @@ public class JsonToCorrLDA {
 					Integer id = vocab.get(w);
 					if(id == null) {
 						vocab.put(w,  i);
-						i++;
 						id = i;
+						i++;
 					}
 					
 					docWriter.write(id + " ");
@@ -101,8 +101,8 @@ public class JsonToCorrLDA {
 					Integer id = labelVocab.get(l);
 					if(id == null) {
 						labelVocab.put(l, j);
-						j++;
 						id = j;
+						j++;
 					}
 					
 					docWriter.write(id + " ");
@@ -111,11 +111,12 @@ public class JsonToCorrLDA {
 				
 			}
 
-			System.out.println("Successfully identified vocabulary and labels");
+			System.out.println("Successfully wrote document file.");
 
 			writeVocab(vocabWriter, vocab);
 			writeVocab(labelWriter, labelVocab);
 
+			System.out.println("Successfully wrote vocabulary files.");
 		}
 
 		private List<String> abstractWords(String abstractText) {

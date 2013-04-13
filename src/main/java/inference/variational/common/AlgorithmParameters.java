@@ -1,4 +1,4 @@
-package inference.variational.common;
+package main.java.inference.variational.common;
 
 public class AlgorithmParameters {
 	public double tolerance;

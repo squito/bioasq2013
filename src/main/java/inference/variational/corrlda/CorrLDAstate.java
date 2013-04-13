@@ -1,6 +1,6 @@
-package inference.variational.corrlda;
+package main.java.inference.variational.corrlda;
 
-import inference.variational.common.AlgorithmParameters;
+import main.java.inference.variational.common.AlgorithmParameters;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +10,8 @@ public class CorrLDAstate {
 	List<double []> gamma; // variational dirichlet.
 	List<List<double []>> phi; // variational multinomial for words.
 	List<List<double []>> lambda; // variational multinomial for y. 
-	List<double [][]> pi; // parameter for labels.
-	List<double [][]> beta; // parameter for words.
+	double [][] pi; // parameter for labels.
+	double [][] beta; // parameter for words.
 	double [] alpha; // dirichlet parameter for topics.
 
 	private CorrLDAdata dat;
@@ -52,8 +52,16 @@ public class CorrLDAstate {
 	}
 
 	private void computePi() {
-		// TODO Auto-generated method stub
-		
+		for(int i=0; i < param.K; i++) {
+			for(int j=0; j < dat.vocabSize; j++) {
+				pi[i][j] = 0;
+				for(int d=0; d < dat.D; d++) {					
+					for(int m=0; m < dat.Mword[d]; m++) {
+						pi[i][j] += phi.get(d).get(m)[i];
+					}
+				}
+			}
+		}
 	}
 
 	private void computeLambda() {
@@ -111,24 +119,18 @@ public class CorrLDAstate {
 		}
 	}
 	private void initializePi() {
-		pi = new ArrayList<double [][]>();
-		for(int d=0; d < dat.D; d++) {
-			pi.add(new double[param.K][dat.vocabSize]);
-			for(int k=0; k < param.K; k++) {
-				for(int i=0; i < dat.vocabSize; i++) {
-					pi.get(d)[k][i] = 1.0/dat.vocabSize;
-				}
+		pi = new double[param.K][dat.vocabSize];
+		for(int k=0; k < param.K; k++) {
+			for(int i=0; i < dat.vocabSize; i++) {
+				pi[k][i] = 1.0/dat.vocabSize;
 			}
 		}
 	}
 	private void initializeBeta() {
-		beta = new ArrayList<double[][]>();
-		for(int d=0; d < dat.D; d++) {
-			beta.add(new double[param.K][dat.labelSize]);
-			for(int k=0; k < param.K; k++) {
-				for(int i=0; i < dat.labelSize; i++) {
-					beta.get(d)[k][i] = 1.0/dat.labelSize;
-				}
+		beta = new double[param.K][dat.labelSize];
+		for(int k=0; k < param.K; k++) {
+			for(int i=0; i < dat.labelSize; i++) {
+				beta[k][i] = 1.0/dat.labelSize;
 			}
 		}
 	}
