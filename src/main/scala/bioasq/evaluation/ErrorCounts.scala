@@ -24,6 +24,10 @@ class ErrorCounts(
     t
   }
 
+  override def toString(): String = {
+    "samples = %d; tp = %d; fp = %d; fn = %d".format(nSamples, totalTruePositives, totalFalsePositives, totalFalseNegatives)
+  }
+
   /**
    * prediction & truth can have data in them that isn't meshIds -- those columns will be ignored
    *
@@ -50,7 +54,7 @@ class ErrorCounts(
         while (meshIdx < meshIds.length && meshIds(meshIdx) < m){
           meshIdx += 1
         }
-        if (m == meshIds(meshIdx)) {
+        if (meshIdx < meshIds.length && m == meshIds(meshIdx)) {
           //this mesh id appears in either the truth or the prediction
           meshTruthCounts(revMeshMapping(m)) += 1
           if (p > m) {
