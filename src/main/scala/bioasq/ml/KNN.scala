@@ -1,10 +1,11 @@
 package bioasq.ml
 
 import org.sblaj.{BaseSparseBinaryVector, SparseBinaryRowMatrix}
+import org.sblaj.util.Logging
 
 class KNN(
   val matrix: SparseBinaryRowMatrix
-) {
+) extends Logging {
   self: DistanceMetric =>
 
   def nearest(input: BaseSparseBinaryVector, sampleTraingIdx: Int): Int = {
@@ -13,7 +14,7 @@ class KNN(
     val sampleRow = new BaseSparseBinaryVector(matrix.colIds, 0,0)
     (0 until matrix.nRows).foreach{rowIdx =>
       if (rowIdx != sampleTraingIdx) {
-        sampleRow.reset(matrix.colIds, matrix.rowStartIdx(rowIdx), matrix.rowStartIdx(rowIdx + 1))
+        matrix.getRow(rowIdx, sampleRow)
         val dist = distance(input, sampleRow)
         if (dist < minDistance) {
           minDistance = dist
