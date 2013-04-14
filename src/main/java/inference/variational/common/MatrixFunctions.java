@@ -2,6 +2,8 @@ package main.java.inference.variational.common;
 
 public class MatrixFunctions {
 	
+	private MatrixFunctions(){};
+	
 	public enum o {
 		plus, minus, times, divide;
 	}
