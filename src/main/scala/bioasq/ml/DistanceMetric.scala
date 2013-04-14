@@ -8,9 +8,10 @@ trait DistanceMetric {
 
 trait CosineDistance extends DistanceMetric {
   def distance(row1: BaseSparseBinaryVector, row2: BaseSparseBinaryVector): Float = {
-    (row1.dot(row2).toFloat / (math.sqrt(row1.nnz) * math.sqrt(row2.nnz))).toFloat
+    1 - (row1.dot(row2).toFloat / (math.sqrt(row1.nnz) * math.sqrt(row2.nnz))).toFloat
   }
 }
+object CosineDistance extends CosineDistance
 
 trait EuclideanDistance extends DistanceMetric {
   def distance(row1: BaseSparseBinaryVector, row2: BaseSparseBinaryVector): Float = {
@@ -43,10 +44,10 @@ trait SameJournalDistanceMetric extends DistanceMetric {
 
   def distance(row1: BaseSparseBinaryVector, row2:BaseSparseBinaryVector): Float = {
     //there should only be one journal, so find it in row1 ...
-    var idx = 0
+    var idx = row1.startIdx
     var jIdx = 0
     var keepGoing = true
-    while (keepGoing && idx < row1.startIdx && jIdx < journalIds.length) {
+    while (keepGoing && idx < row1.endIdx && jIdx < journalIds.length) {
       if (row1.colIds(idx) == journalIds(jIdx)) {
         keepGoing = false
       } else if (row1.colIds(idx) < journalIds(jIdx)) {
