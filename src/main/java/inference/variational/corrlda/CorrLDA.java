@@ -28,6 +28,16 @@ public class CorrLDA {
 		
 	}
 
+	protected void infer() {
+		
+		for(int iter = 0; iter < algorithmParameters.maxIter; iter++) {
+			System.out.println("Iteration: " + iter);
+			state.iterate();
+		}
+		
+	}
+	
+	
 	public static void main(String[] args) throws IOException, InputFormatException { 
 
 		if(args.length != 5) {
@@ -56,6 +66,9 @@ public class CorrLDA {
 		reader.close();
 
 		CorrLDA corrLDA = new CorrLDA(corpusFilename, vocabSize, labelSize, K, maxIter, 0.001);
+		corrLDA.infer();
+		
+		
 		System.out.println("Done.");
 		
 	}

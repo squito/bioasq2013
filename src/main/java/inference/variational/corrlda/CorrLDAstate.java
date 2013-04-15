@@ -1,18 +1,25 @@
 package main.java.inference.variational.corrlda;
 
 import main.java.inference.variational.common.AlgorithmParameters;
+import main.java.inference.variational.common.Normalizer;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.math3.special.Gamma;
+
 public class CorrLDAstate {
 
-	List<double []> gamma; // variational dirichlet.
-	List<List<double []>> phi; // variational multinomial for words.
-	List<List<double []>> lambda; // variational multinomial for y. 
-	double [][] pi; // parameter for labels.
-	double [][] beta; // parameter for words.
-	double [] alpha; // dirichlet parameter for topics.
+	
+	// Md - number of words for doc.
+	// Nd - number of labels for doc.
+	double [][] gamma; // variational dirichlet. D x K
+	double [] sumGamma; // D
+	double[][][] phi; // variational multinomial for words.  D x Md x K
+	double [][][] lambda; // variational multinomial for y.  D x Nd x Md
+	double [][] pi; // parameter for labels.  K x Vs
+	double [][] beta; // parameter for words. K x Vt
+	double [] alpha; // dirichlet parameter for topics.  K
 
 	private CorrLDAdata dat;
 	private CorrLDAparameters param;
@@ -22,24 +29,27 @@ public class CorrLDAstate {
 		this.dat = dat;
 		this.param = param;
 		this.algParam = algorithmParameters;
+
+		initializeAlpha(); 
+		initializePi();
+		initializeBeta();
 		
-		// M - number of words for doc.
-		// N - number of labels for doc.
-		initializeAlpha(); // K
-		initializeGamma(); // K
-		initializePhi();  // MxK
-		initializeLambda(); // NxM
-		initializePi(); // KxVs
-		initializeBeta(); // KxVt
+		initializeGamma();
+		initializePhi();
+		initializeLambda();
+		
 		
 	}
 
 	public void iterate() {
-		
-		computeAlpha();
+
+		// E-step
 		computeGamma();
 		computePhi();
 		computeLambda();
+		
+		// M-step
+		computeAlpha();
 		computePi();
 		computeBeta();
 		
@@ -47,35 +57,97 @@ public class CorrLDAstate {
 	
 	
 	private void computeBeta() {
-		// TODO Auto-generated method stub
-		
-	}
-
-	private void computePi() {
 		for(int i=0; i < param.K; i++) {
-			for(int j=0; j < dat.vocabSize; j++) {
-				pi[i][j] = 0;
-				for(int d=0; d < dat.D; d++) {					
-					for(int m=0; m < dat.Mword[d]; m++) {
-						pi[i][j] += phi.get(d).get(m)[i];
+			beta[i] = new double[dat.Vt]; // Clear beta[i].
+			for(int d=0; d < dat.D; d++) {					
+				for(int n=0; n < dat.Nd[d]; n++) {
+					for(int m=0; m < dat.Md[d]; m++) {
+						beta[i][dat.docs.get(d).labels[n]] += phi[d][m][i] * lambda[d][n][m];
 					}
 				}
 			}
 		}
+		
+		for(int i=0; i < param.K; i++) {
+			beta[i] = Normalizer.normalize(beta[i]);
+		}
+		
+	}
+
+	private void computePi() {
+		
+		for(int i=0; i < param.K; i++) {
+			pi[i] = new double[dat.Vs];  // Clear pi[i].
+			for(int d=0; d < dat.D; d++) {					
+				for(int m=0; m < dat.Md[d]; m++) {
+					pi[i][dat.docs.get(d).words[m]] += phi[d][m][i];
+				}
+			}
+		}
+
+		for(int i=0; i < param.K; i++) {
+			pi[i] = Normalizer.normalize(pi[i]);
+		}
+		
 	}
 
 	private void computeLambda() {
-		// TODO Auto-generated method stub
 		
+		for(int d=0; d < dat.D; d++) {
+			for(int n=0; n < dat.Nd[d]; n++) {
+				for(int m=0; m < dat.Md[d]; m++) {
+					
+					double sm = 0;
+					for(int i=0; i < param.K; i++) {
+						sm += phi[d][m][i] * Math.log(beta[i][dat.docs.get(d).labels[n]]);
+					}
+					
+					lambda[d][n][m] = sm;
+					
+				}
+				
+				lambda[d][n] = Normalizer.normalizeFromLog(lambda[d][n]);
+			}
+		}
 	}
 
 	private void computePhi() {
-		// TODO Auto-generated method stub
-		
+				
+		for(int d=0; d < dat.D; d++) {			
+			for(int m=0; m < dat.Md[d]; m++) {
+				for(int i=0; i < param.K; i++) {
+					
+					double sm = 0;
+					for(int n=0; n < dat.Nd[d]; n++) {
+						sm += lambda[d][n][m] * Math.log(beta[i][dat.docs.get(d).labels[n]]);
+					}
+					
+					phi[d][m][i] = Math.log( pi[i][dat.docs.get(d).words[m]]) + Gamma.digamma(gamma[d][i]) - Gamma.digamma(sumGamma[d]) + sm;
+
+				}
+
+				phi[d][m] = Normalizer.normalizeFromLog(phi[d][m]);
+			}
+		}
 	}
 
 	private void computeGamma() {
-		// TODO Auto-generated method stub
+		
+		sumGamma = new double[dat.D];
+		for(int d=0; d < dat.D; d++) {
+			
+			for(int i=0; i < param.K; i++) {
+				
+				double sm = 0;
+				for(int m=0; m < dat.Md[d]; m++) {
+					sm += phi[d][m][i];
+				}
+				
+				gamma[d][i] = alpha[i] + sm;
+				sumGamma[d] += gamma[d][i];
+			}
+			
+		}
 		
 	}
 
@@ -85,52 +157,52 @@ public class CorrLDAstate {
 	}
 
 	private void initializeGamma() {
-		gamma = new ArrayList<double []>();
+		gamma = new double[dat.D][];
 		for(int d=0; d < dat.D; d++) {
-			gamma.add(new double[param.K]);
+			gamma[d] = new double[param.K];
 			for(int k=0; k < param.K; k++) {
-				gamma.get(d)[k] = alpha[k] + dat.Mword[d]/param.K;
+				gamma[d][k] = alpha[k] + dat.Md[d]/param.K;
 			}
 		}
 	}
 	private void initializePhi() {
-		phi = new ArrayList<List<double []>>();
+		phi = new double[dat.D][][];
 		for(int d=0; d < dat.D; d++) {
-			phi.add(new ArrayList<double []>());
-			for(int i=0; i < dat.Mword[d]; i++) {
-				phi.get(d).add(new double[param.K]);
+			phi[d] = new double[dat.Md[d]][];			
+			for(int i=0; i < dat.Md[d]; i++) {
+				phi[d][i] = new double[param.K];
 				for(int k=0; k < param.K; k++) {
-					phi.get(d).get(i)[k] = 1.0/param.K;
+					phi[d][i][k] = 1.0/param.K;
 				}
 			}
 		}
 	}
 	private void initializeLambda() {
-		lambda = new ArrayList<List<double []>>();
+		lambda = new double[dat.D][][];
 		for(int d=0; d < dat.D; d++) {
-			lambda.add(new ArrayList<double []>());
-			for(int i=0; i < dat.Mlabel[d]; i++) {
-				lambda.get(d).add(new double[dat.Mword[i]]);
-				for(int j=0; j < dat.Mword[i]; j++) {
-					lambda.get(d).get(i)[j] = 1.0;  //TODO what's the right initialization here?
+			lambda[d] = new double[dat.Nd[d]][];
+			for(int i=0; i < dat.Nd[d]; i++) {
+				lambda[d][i] = new double[dat.Md[d]];
+				for(int j=0; j < dat.Md[d]; j++) {
+					lambda[d][i][j] = 1.0/dat.Md[d];  
 				}
 			}
 			
 		}
 	}
 	private void initializePi() {
-		pi = new double[param.K][dat.vocabSize];
+		pi = new double[param.K][dat.Vs];
 		for(int k=0; k < param.K; k++) {
-			for(int i=0; i < dat.vocabSize; i++) {
-				pi[k][i] = 1.0/dat.vocabSize;
+			for(int i=0; i < dat.Vs; i++) {
+				pi[k][i] = 1.0/dat.Vs;
 			}
 		}
 	}
 	private void initializeBeta() {
-		beta = new double[param.K][dat.labelSize];
+		beta = new double[param.K][dat.Vt];
 		for(int k=0; k < param.K; k++) {
-			for(int i=0; i < dat.labelSize; i++) {
-				beta[k][i] = 1.0/dat.labelSize;
+			for(int i=0; i < dat.Vt; i++) {
+				beta[k][i] = 1.0/dat.Vt;
 			}
 		}
 	}

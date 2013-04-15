@@ -5,24 +5,25 @@ import java.util.List;
 public class CorrLDAdata {
 
 	public List<Document> docs;
-	int vocabSize;
-	int labelSize;
+	int Vs;  // Number of vocab words total. 
+	int Vt;  // Number of labels total.
 	
 	// Number of documents.
 	int D;   
-	int [] Mword;
-	int [] Mlabel;
+	int [] Md;
+	int [] Nd;
 	
 	public CorrLDAdata(List<Document> docs, int vocabSize, int labelSize) {
-		this.vocabSize = vocabSize;
-		this.labelSize = labelSize;
+		this.Vs = vocabSize;
+		this.Vt = labelSize;
+		this.docs = docs;
 		
 		D = docs.size();
-		Mword = new int[D];
-		Mlabel = new int[D];
+		Md = new int[D];
+		Nd = new int[D];
 		for(int i=0; i < D; i++) {
-			Mword[i] = docs.get(i).words.length;
-			Mlabel[i] = docs.get(i).labels.length;
+			Md[i] = docs.get(i).words.length;
+			Nd[i] = docs.get(i).labels.length;
 		}
 
 		System.out.println(this);
