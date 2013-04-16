@@ -2,6 +2,7 @@ package inference.variational.corrlda;
 
 import inference.variational.common.AlgorithmParameters;
 import inference.variational.common.Normalizer;
+import inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,10 +43,10 @@ public class CorrLDAstate {
 
 	public void iterate() {
 
-		// E-step
-		computeGamma();
+		// E-step		
 		computePhi();
 		computeLambda();
+		computeGamma();
 		
 		// M-step
 		computeAlpha();
@@ -58,16 +59,17 @@ public class CorrLDAstate {
 	private void computeBeta() {
 		for(int i=0; i < param.K; i++) {
 			beta[i] = new double[dat.Vt]; // Clear beta[i].
-			for(int d=0; d < dat.D; d++) {					
+			for(int d=0; d < dat.D; d++) {	
+
+				Document doc = dat.docs.get(d);
+				double [][] lam = lambda[d];
+				
 				for(int n=0; n < dat.Nd[d]; n++) {
 					for(int m=0; m < dat.Md[d]; m++) {
-						beta[i][dat.docs.get(d).labels[n]] += phi[d][m][i] * lambda[d][n][m];
+						beta[i][doc.labels[n]] += phi[d][m][i] * lam[n][m];
 					}
 				}
 			}
-		}
-		
-		for(int i=0; i < param.K; i++) {
 			beta[i] = Normalizer.normalize(beta[i]);
 		}
 		
@@ -82,9 +84,6 @@ public class CorrLDAstate {
 					pi[i][dat.docs.get(d).words[m]] += phi[d][m][i];
 				}
 			}
-		}
-
-		for(int i=0; i < param.K; i++) {
 			pi[i] = Normalizer.normalize(pi[i]);
 		}
 		
@@ -93,12 +92,15 @@ public class CorrLDAstate {
 	private void computeLambda() {
 		
 		for(int d=0; d < dat.D; d++) {
+			
+			Document doc = dat.docs.get(d);
+			
 			for(int n=0; n < dat.Nd[d]; n++) {
 				for(int m=0; m < dat.Md[d]; m++) {
 					
 					double sm = 0;
 					for(int i=0; i < param.K; i++) {
-						sm += phi[d][m][i] * Math.log(beta[i][dat.docs.get(d).labels[n]]);
+						sm += phi[d][m][i] * Math.log(beta[i][doc.labels[n]]);
 					}
 					
 					lambda[d][n][m] = sm;
@@ -112,16 +114,22 @@ public class CorrLDAstate {
 
 	private void computePhi() {
 				
-		for(int d=0; d < dat.D; d++) {			
+		for(int d=0; d < dat.D; d++) {		
+			
+			Document doc = dat.docs.get(d);
+			double [] gam = gamma[d];
+			double [][] lam = lambda[d];
+			double sumGam = sumGamma[d];
+			
 			for(int m=0; m < dat.Md[d]; m++) {
 				for(int i=0; i < param.K; i++) {
 					
 					double sm = 0;
 					for(int n=0; n < dat.Nd[d]; n++) {
-						sm += lambda[d][n][m] * Math.log(beta[i][dat.docs.get(d).labels[n]]);
+						sm += lam[n][m] * Math.log(beta[i][doc.labels[n]]);
 					}
 					
-					phi[d][m][i] = Math.log( pi[i][dat.docs.get(d).words[m]]) + Gamma.digamma(gamma[d][i]) - Gamma.digamma(sumGamma[d]) + sm;
+					phi[d][m][i] = Math.log( pi[i][doc.words[m]]) + Gamma.digamma(gam[i]) - Gamma.digamma(sumGam) + sm;
 
 				}
 
@@ -157,10 +165,12 @@ public class CorrLDAstate {
 
 	private void initializeGamma() {
 		gamma = new double[dat.D][];
+		sumGamma = new double[dat.D];
 		for(int d=0; d < dat.D; d++) {
 			gamma[d] = new double[param.K];
 			for(int k=0; k < param.K; k++) {
 				gamma[d][k] = alpha[k] + dat.Md[d]/param.K;
+				sumGamma[d] += gamma[d][k];
 			}
 		}
 	}

@@ -32,6 +32,13 @@ public class CorrLDA {
 		
 		for(int iter = 0; iter < algorithmParameters.maxIter; iter++) {
 			System.out.println("Iteration: " + iter);
+			double [] gamma = state.getGamma()[1];
+			
+			for(int i=0; i < param.K; i++) {
+				System.out.print(gamma[i] + "  ");
+			}
+			System.out.println();
+			
 			state.iterate();
 		}
 		
