@@ -1,6 +1,6 @@
-package main.java.inference.variational.common;
+package inference.variational.common;
 
-import main.java.inference.variational.common.MatrixFunctions.o;
+import inference.variational.common.MatrixFunctions.o;
 
 
 public class Normalizer {

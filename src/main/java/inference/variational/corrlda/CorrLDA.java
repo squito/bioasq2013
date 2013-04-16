@@ -1,7 +1,7 @@
-package main.java.inference.variational.corrlda;
+package inference.variational.corrlda;
 
-import main.java.inference.variational.common.AlgorithmParameters;
-import main.java.inference.variational.corrlda.CorrLDAdata.Document;
+import inference.variational.common.AlgorithmParameters;
+import inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.io.BufferedReader;
 import java.io.File;

@@ -1,7 +1,7 @@
-package main.java.inference.variational.corrlda;
+package inference.variational.corrlda;
 
-import main.java.inference.variational.common.AlgorithmParameters;
-import main.java.inference.variational.common.Normalizer;
+import inference.variational.common.AlgorithmParameters;
+import inference.variational.common.Normalizer;
 
 import java.util.ArrayList;
 import java.util.List;
