@@ -1,4 +1,4 @@
-package main.java.inference.variational.common;
+package inference.variational.common;
 
 public class MatrixFunctions {
 	

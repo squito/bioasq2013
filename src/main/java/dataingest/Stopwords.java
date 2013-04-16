@@ -1,4 +1,4 @@
-package main.java.dataingest;
+package dataingest;
 
 import java.util.HashSet;
 

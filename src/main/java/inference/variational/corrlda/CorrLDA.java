@@ -1,7 +1,7 @@
-package main.java.inference.variational.corrlda;
+package inference.variational.corrlda;
 
-import main.java.inference.variational.common.AlgorithmParameters;
-import main.java.inference.variational.corrlda.CorrLDAdata.Document;
+import inference.variational.common.AlgorithmParameters;
+import inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -68,6 +68,9 @@ public class CorrLDA {
 		CorrLDA corrLDA = new CorrLDA(corpusFilename, vocabSize, labelSize, K, maxIter, 0.001);
 		corrLDA.infer();
 		
+		ResultViewer viewer = new ResultViewer(vocabFilename, labelFilename);
+		viewer.loadDictionaries();
+		viewer.view(corrLDA);
 		
 		System.out.println("Done.");
 		

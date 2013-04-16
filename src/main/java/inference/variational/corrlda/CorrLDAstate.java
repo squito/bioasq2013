@@ -1,7 +1,7 @@
-package main.java.inference.variational.corrlda;
+package inference.variational.corrlda;
 
-import main.java.inference.variational.common.AlgorithmParameters;
-import main.java.inference.variational.common.Normalizer;
+import inference.variational.common.AlgorithmParameters;
+import inference.variational.common.Normalizer;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -24,7 +24,7 @@ public class CorrLDAstate {
 	private CorrLDAdata dat;
 	private CorrLDAparameters param;
 	private AlgorithmParameters algParam;
-	
+
 	public CorrLDAstate(CorrLDAdata dat, CorrLDAparameters param, AlgorithmParameters algorithmParameters) {
 		this.dat = dat;
 		this.param = param;
@@ -37,7 +37,6 @@ public class CorrLDAstate {
 		initializeGamma();
 		initializePhi();
 		initializeLambda();
-		
 		
 	}
 
@@ -211,6 +210,30 @@ public class CorrLDAstate {
 		for(int k=0; k < param.K; k++) {
 			alpha[k] = 1.0/param.K;
 		}
+	}
+	
+	public double [][] getGamma() {
+		return gamma;
+	}
+	
+	public double [][][] getPhi() {
+		return phi;
+	}
+	
+	public double [][][] getLambda() {
+		return lambda;
+	}
+	
+	public double [][] getPi() {
+		return pi;
+	}
+	
+	public double [][] getBeta() {
+		return beta;
+	}
+	
+	public double [] getAlpha() {
+		return alpha;
 	}
 	
 	

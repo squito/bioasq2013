@@ -1,4 +1,4 @@
-package main.java.inference.variational.corrlda;
+package inference.variational.corrlda;
 
 import java.util.List;
 
