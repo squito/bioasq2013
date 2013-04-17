@@ -16,6 +16,7 @@ import com.fasterxml.jackson.module.scala.DefaultScalaModule
 import java.util
 import collection.JavaConverters._
 import org.sblaj.util.Logging
+import it.unimi.dsi.fastutil.longs.Long2IntMap
 
 
 /**
@@ -95,7 +96,6 @@ object AbstractParser extends ArgMain[ParserArgs] with Logging {
     om.registerModule(DefaultScalaModule)
     om.writeValue(new File(out), labeled)
   }
-
 }
 
 class ParserArgs extends FieldArgs {
@@ -153,6 +153,17 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
     f._1.startsWith(JOURNAL_PREFIX) ||
       f._1.startsWith(JOURNAL_WORD_PREFIX) ||
       f._1.startsWith(MESH_PREFIX)
+  }
+
+  def testAbtractFeaturize(abs: TestAbstract, featuresInSet: Long2IntMap, writeInto: Array[Int]): Int = {
+    val codes = unigrams(abs.`abstract`).map{s => featuresInSet.get(Murmur64.hash64(s))}
+    var idx = 0
+    codes.foreach{c =>
+      writeInto(idx) = c
+      idx += 1
+    }
+    java.util.Arrays.sort(writeInto, 0, idx)
+    idx
   }
 }
 
