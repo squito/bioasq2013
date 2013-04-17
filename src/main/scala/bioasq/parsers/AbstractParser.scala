@@ -13,19 +13,23 @@ import org.sblaj.featurization.{Murmur64, MurmurFeaturizer, FeaturizerHelper, Bi
 import com.quantifind.sumac.{FieldArgs, ArgMain}
 import dataingest.JsonToLdaC
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import java.util
+import collection.JavaConverters._
+import org.sblaj.util.Logging
+
 
 /**
  *
  */
 
-object AbstractParser extends ArgMain[ParserArgs]{
+object AbstractParser extends ArgMain[ParserArgs] with Logging {
 
   def main(args: ParserArgs) {
 
     if (args.featurize) {
       val in = new GZIPInputStream(new FileInputStream(DataFiles.TrainingAbstractsGzip))
       new java.io.File(DataFiles.trainingFeaturizedDir(args.featureSetName)).mkdirs()
-      featurizeAbstracts(Source.fromInputStream(in), DataFiles.trainingFeaturizedFileSet(args.featureSetName))
+      featurizeAbstracts(Source.fromInputStream(in), DataFiles.trainingFeaturizedFileSet(args.featureSetName), args.minYear)
     }
 
     if (args.toIntVectors) {
@@ -43,11 +47,22 @@ object AbstractParser extends ArgMain[ParserArgs]{
     }
   }
 
-  def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
+  def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet, minYear: Int) {
+    val yearCounts = new util.TreeMap[Int,Int]().asScala
     val abstractsItr = new ItrWithLogs[Abstract](parseAbstracts(abstractSource),max=Int.MaxValue,logF = {
-      (abs, idx) => if (idx % 10000 == 0) println(new Date() + "\t" + idx)
-    })
+      (abs, idx) => if (idx % 10000 == 0) println(new Date() + "\t" + (idx / 1000) + "K")
+    }).filter{t => {
+      val y =  try{t.year.toInt} catch{ case ex: Exception => 0}
+      yearCounts(y) = yearCounts.getOrElse(y, 0) + 1
+      y >= minYear
+    }}
     FeaturizerHelper.featurizeToFiles(abstractsItr, AbstractFeaturizer, featurizationFiles, 1e5.toInt)
+
+
+    info("Abstracts per year:")
+    yearCounts.foreach{case(year,counts)=>
+      info(year + "\t" + counts)
+    }
   }
 
   def parseAbstracts(file:String)(f: Abstract => Unit) {
@@ -83,6 +98,7 @@ class ParserArgs extends FieldArgs {
   var featureSetName: String = _
   var minFrac = 1e-5
   var testSet: String = _
+  var minYear: Int = 2000
 }
 
 
