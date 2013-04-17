@@ -19,4 +19,8 @@ object DataFiles {
   val TrainingFeaturizedDir = DataDir + "/training/featurized/"
   val TrainingFeaturizedFileSet = new VectorFileSet(TrainingFeaturizedDir)
   val TrainingIntVectorFileSet = new VectorFileSet(DataDir + "/training/featurized_int")
+
+  def testSetDir(testSetId: String) = DataDir + "/testsets/" + testSetId
+  def testSetAbstractJson(testSetId: String) = testSetDir(testSetId) + "/testset.txt"
+  def testSetResultJson(testSetId: String, systemId: String) = testSetDir(testSetId) + "/" + systemId + ".json"
 }

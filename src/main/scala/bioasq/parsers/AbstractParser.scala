@@ -7,6 +7,7 @@ import java.io.FileInputStream
 import bioasq.DataFiles
 import collection._
 import java.util.Date
+import mutable.ArrayBuffer
 import org.sblaj.io.{DictionaryIO, VectorIO, VectorFileSet}
 import org.sblaj.featurization.{Murmur64, MurmurFeaturizer, FeaturizerHelper, BinaryFeaturizer}
 import com.quantifind.sumac.{FieldArgs, ArgMain}
@@ -35,6 +36,11 @@ object AbstractParser extends ArgMain[ParserArgs]{
         AbstractFeaturizer.preserveFeaturePredicate _
       )
     }
+
+    if (args.testSet != null) {
+      val testSet = parseTestAbstracts(DataFiles.testSetAbstractJson("1"))
+      println("testSet size = " + testSet.size)
+    }
   }
 
   def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
@@ -58,6 +64,17 @@ object AbstractParser extends ArgMain[ParserArgs]{
       }
   }
 
+  def parseTestAbstracts(file: String): Seq[TestAbstract] = {
+    parseTestAbstracts(Source.fromFile(file))
+  }
+
+  //test sets are small -- just load them into memory
+  def parseTestAbstracts(source: Source): Seq[TestAbstract] = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.readValue(source.getLines().next(), classOf[TestSet]).documents
+  }
+
 }
 
 class ParserArgs extends FieldArgs {
@@ -69,6 +86,8 @@ class ParserArgs extends FieldArgs {
   var iterate = false
   var toIntVectors = false
   var minFrac = 1e-5
+
+  var testSet: String = _
 }
 
 
@@ -90,7 +109,7 @@ case class Abstract(
   val meshMajor: Array[String],
   val pmid: String,
   val title: String,
-  val year: String  //for some reason, its a year in the json
+  val year: String  //for some reason, its a String in the json
 )
 
 object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
@@ -119,3 +138,14 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
       f._1.startsWith(MESH_PREFIX)
   }
 }
+
+case class TestAbstract(
+  val pmid: String,
+  val title: String,
+  val `abstract`: String
+  //not sure if there is an implicit "year" as well
+)
+
+case class TestSet(
+  val documents: ArrayBuffer[TestAbstract]
+)
