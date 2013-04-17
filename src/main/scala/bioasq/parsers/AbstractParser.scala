@@ -24,14 +24,14 @@ object AbstractParser extends ArgMain[ParserArgs]{
 
     if (args.featurize) {
       val in = new GZIPInputStream(new FileInputStream(DataFiles.TrainingAbstractsGzip))
-      new java.io.File(DataFiles.TrainingFeaturizedDir).mkdirs()
-      featurizeAbstracts(Source.fromInputStream(in), DataFiles.TrainingFeaturizedFileSet)
+      new java.io.File(DataFiles.trainingFeaturizedDir(args.featureSetName)).mkdirs()
+      featurizeAbstracts(Source.fromInputStream(in), DataFiles.trainingFeaturizedFileSet(args.featureSetName))
     }
 
     if (args.toIntVectors) {
       VectorIO.convertToIntVectorsWithPredicate(
-        DataFiles.TrainingFeaturizedFileSet,
-        DataFiles.TrainingIntVectorFileSet,
+        DataFiles.trainingFeaturizedFileSet(args.featureSetName),
+        DataFiles.trainingIntVectorFileSet(args.featureSetName),
         args.minFrac,
         AbstractFeaturizer.preserveFeaturePredicate _
       )
@@ -79,14 +79,9 @@ object AbstractParser extends ArgMain[ParserArgs]{
 
 class ParserArgs extends FieldArgs {
   var featurize = false
-  var mergeDictionary = false
-  var idSet = false
-  var enumerate = false
-  var dictionaryEnumerate = false
-  var iterate = false
   var toIntVectors = false
+  var featureSetName: String = _
   var minFrac = 1e-5
-
   var testSet: String = _
 }
 
@@ -148,4 +143,13 @@ case class TestAbstract(
 
 case class TestSet(
   val documents: ArrayBuffer[TestAbstract]
+)
+
+case class LabeledAbstract(
+  val labels: ArrayBuffer[String],
+  val pmid: String
+)
+
+case class LabeledAbstractSet(
+  val documents: ArrayBuffer[LabeledAbstract]
 )
