@@ -69,7 +69,9 @@ object TestSetLabeler extends ArgMain[TestSetLabelerArgs] with Logging {
       } else if (vector.colIds(vIdx) > labels(lIdx)) {
         lIdx += 1
       } else {
-        s += idMap(vector.colIds(vIdx))
+        val m = idMap(vector.colIds(vIdx))
+        require(m.startsWith(AbstractFeaturizer.MESH_PREFIX))
+        s += m.substring(AbstractFeaturizer.MESH_PREFIX.length)
         vIdx += 1
         lIdx += 1
       }
