@@ -3,7 +3,7 @@ package bioasq.parsers
 import io.Source
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.zip.GZIPInputStream
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 import bioasq.DataFiles
 import collection._
 import java.util.Date
@@ -88,6 +88,12 @@ object AbstractParser extends ArgMain[ParserArgs] with Logging {
     val om = new ObjectMapper()
     om.registerModule(DefaultScalaModule)
     om.readValue(source.getLines().next(), classOf[TestSet]).documents
+  }
+
+  def writeResults(labeled: LabeledAbstractSet, out: String) {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.writeValue(new File(out), labeled)
   }
 
 }
