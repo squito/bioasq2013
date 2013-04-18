@@ -3,45 +3,67 @@ package bioasq.parsers
 import io.Source
 import com.fasterxml.jackson.databind.ObjectMapper
 import java.util.zip.GZIPInputStream
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 import bioasq.DataFiles
 import collection._
 import java.util.Date
+import mutable.ArrayBuffer
 import org.sblaj.io.{DictionaryIO, VectorIO, VectorFileSet}
 import org.sblaj.featurization.{Murmur64, MurmurFeaturizer, FeaturizerHelper, BinaryFeaturizer}
 import com.quantifind.sumac.{FieldArgs, ArgMain}
 import dataingest.JsonToLdaC
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
+import java.util
+import collection.JavaConverters._
+import org.sblaj.util.Logging
+import it.unimi.dsi.fastutil.longs.Long2IntMap
+
 
 /**
  *
  */
 
-object AbstractParser extends ArgMain[ParserArgs]{
+object AbstractParser extends ArgMain[ParserArgs] with Logging {
 
   def main(args: ParserArgs) {
 
     if (args.featurize) {
       val in = new GZIPInputStream(new FileInputStream(DataFiles.TrainingAbstractsGzip))
-      new java.io.File(DataFiles.TrainingFeaturizedDir).mkdirs()
-      featurizeAbstracts(Source.fromInputStream(in), DataFiles.TrainingFeaturizedFileSet)
+      new java.io.File(DataFiles.trainingFeaturizedDir(args.featureSetName)).mkdirs()
+      featurizeAbstracts(Source.fromInputStream(in), DataFiles.trainingFeaturizedFileSet(args.featureSetName), args.minYear)
     }
 
     if (args.toIntVectors) {
       VectorIO.convertToIntVectorsWithPredicate(
-        DataFiles.TrainingFeaturizedFileSet,
-        DataFiles.TrainingIntVectorFileSet,
+        DataFiles.trainingFeaturizedFileSet(args.featureSetName),
+        DataFiles.trainingIntVectorFileSet(args.featureSetName),
         args.minFrac,
         AbstractFeaturizer.preserveFeaturePredicate _
       )
     }
+
+    if (args.testSet != null) {
+      val testSet = parseTestAbstracts(DataFiles.testSetAbstractJson("1"))
+      println("testSet size = " + testSet.size)
+    }
   }
 
-  def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet) {
+  def featurizeAbstracts(abstractSource: Source, featurizationFiles: VectorFileSet, minYear: Int) {
+    val yearCounts = new util.TreeMap[Int,Int]().asScala
     val abstractsItr = new ItrWithLogs[Abstract](parseAbstracts(abstractSource),max=Int.MaxValue,logF = {
-      (abs, idx) => if (idx % 10000 == 0) println(new Date() + "\t" + idx)
-    })
+      (abs, idx) => if (idx % 10000 == 0) println(new Date() + "\t" + (idx / 1000) + "K")
+    }).filter{t => {
+      val y =  try{t.year.toInt} catch{ case ex: Exception => 0}
+      yearCounts(y) = yearCounts.getOrElse(y, 0) + 1
+      y >= minYear
+    }}
     FeaturizerHelper.featurizeToFiles(abstractsItr, AbstractFeaturizer, featurizationFiles, 1e5.toInt)
+
+
+    info("Abstracts per year:")
+    yearCounts.foreach{case(year,counts)=>
+      info(year + "\t" + counts)
+    }
   }
 
   def parseAbstracts(file:String)(f: Abstract => Unit) {
@@ -58,17 +80,31 @@ object AbstractParser extends ArgMain[ParserArgs]{
       }
   }
 
+  def parseTestAbstracts(file: String): Seq[TestAbstract] = {
+    parseTestAbstracts(Source.fromFile(file))
+  }
+
+  //test sets are small -- just load them into memory
+  def parseTestAbstracts(source: Source): Seq[TestAbstract] = {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.readValue(source.getLines().next(), classOf[TestSet]).documents
+  }
+
+  def writeResults(labeled: LabeledAbstractSet, out: String) {
+    val om = new ObjectMapper()
+    om.registerModule(DefaultScalaModule)
+    om.writeValue(new File(out), labeled)
+  }
 }
 
 class ParserArgs extends FieldArgs {
   var featurize = false
-  var mergeDictionary = false
-  var idSet = false
-  var enumerate = false
-  var dictionaryEnumerate = false
-  var iterate = false
   var toIntVectors = false
+  var featureSetName: String = _
   var minFrac = 1e-5
+  var testSet: String = _
+  var minYear: Int = 2000
 }
 
 
@@ -90,7 +126,7 @@ case class Abstract(
   val meshMajor: Array[String],
   val pmid: String,
   val title: String,
-  val year: String  //for some reason, its a year in the json
+  val year: String  //for some reason, its a String in the json
 )
 
 object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
@@ -118,4 +154,35 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
       f._1.startsWith(JOURNAL_WORD_PREFIX) ||
       f._1.startsWith(MESH_PREFIX)
   }
+
+  def testAbtractFeaturize(abs: TestAbstract, featuresInSet: Long2IntMap, writeInto: Array[Int]): Int = {
+    val codes = unigrams(abs.`abstract`).map{s => featuresInSet.get(Murmur64.hash64(s))}
+    var idx = 0
+    codes.foreach{c =>
+      writeInto(idx) = c
+      idx += 1
+    }
+    java.util.Arrays.sort(writeInto, 0, idx)
+    idx
+  }
 }
+
+case class TestAbstract(
+  val pmid: String,
+  val title: String,
+  val `abstract`: String
+  //not sure if there is an implicit "year" as well
+)
+
+case class TestSet(
+  val documents: ArrayBuffer[TestAbstract]
+)
+
+case class LabeledAbstract(
+  val labels: ArrayBuffer[String],
+  val pmid: String
+)
+
+case class LabeledAbstractSet(
+  val documents: ArrayBuffer[LabeledAbstract]
+)

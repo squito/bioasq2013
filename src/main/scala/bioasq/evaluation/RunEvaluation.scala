@@ -20,7 +20,7 @@ import bioasq.parsers.AbstractFeaturizer
 
 object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
   def main(args: RunEvaluationArgs) {
-    val fileSet = TrainingIntVectorFileSet.sampleSizeLimitIntVectors(args.maxBytes)
+    val fileSet = trainingIntVectorFileSet(args.featureSetName).sampleSizeLimitIntVectors(args.maxBytes)
     val mat = VectorIO.loadMatrix(fileSet)
 
     val codeLookup = ArrayCodeLookup.loadFromText(mat.nCols, scala.io.Source.fromFile(fileSet.getMergedDictionaryFile))
@@ -65,4 +65,5 @@ object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
 
 class RunEvaluationArgs extends FieldArgs {
   var maxBytes: Long = 1e8.toLong
+  var featureSetName: String = _
 }
