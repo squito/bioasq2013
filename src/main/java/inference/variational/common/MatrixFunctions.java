@@ -286,5 +286,12 @@ public class MatrixFunctions {
 		return s;
 		
 	}
+	
+	public static void print(double [] vec) {
+		for(int i=0; i < vec.length; i++) {
+			System.out.print(vec[i] + "  ");
+		}
+		System.out.println();
+	}
 	 	
 }

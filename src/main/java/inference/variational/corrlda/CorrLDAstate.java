@@ -1,15 +1,18 @@
 package inference.variational.corrlda;
 
 import inference.variational.common.AlgorithmParameters;
+import inference.variational.common.MatrixFunctions;
 import inference.variational.common.Normalizer;
 import inference.variational.corrlda.CorrLDAdata.Document;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.commons.math3.special.Gamma;
 
-public class CorrLDAstate {
+public class CorrLDAstate implements Serializable {
 
 	
 	// Md - number of words for doc.
@@ -25,7 +28,25 @@ public class CorrLDAstate {
 	private CorrLDAdata dat;
 	private CorrLDAparameters param;
 	private AlgorithmParameters algParam;
+	private Integer holdoutIndex = null;
 
+	private static transient Random rand = new Random();
+	
+	public CorrLDAstate() {};
+	
+	public CorrLDAstate(CorrLDAstate state) {
+		gamma = state.gamma;
+		sumGamma = state.sumGamma;
+		phi = state.phi;
+		lambda = state.lambda;
+		pi = state.pi;
+		beta = state.beta;
+		alpha = state.alpha;
+		dat = state.dat;
+		param = state.param;
+		algParam = state.algParam;
+	}
+	
 	public CorrLDAstate(CorrLDAdata dat, CorrLDAparameters param, AlgorithmParameters algorithmParameters) {
 		this.dat = dat;
 		this.param = param;
@@ -41,6 +62,11 @@ public class CorrLDAstate {
 		
 	}
 
+	
+	public void setHoldoutIndex(int holdoutIndex) {
+		this.holdoutIndex = holdoutIndex;
+	}
+	
 	public void iterate() {
 
 		// E-step		
@@ -59,8 +85,8 @@ public class CorrLDAstate {
 	private void computeBeta() {
 		for(int i=0; i < param.K; i++) {
 			beta[i] = new double[dat.Vt]; // Clear beta[i].
-			for(int d=0; d < dat.D; d++) {	
-
+			for(int d=0; d < holdoutIndex; d++) {	
+				
 				Document doc = dat.docs.get(d);
 				double [][] lam = lambda[d];
 				
@@ -91,7 +117,7 @@ public class CorrLDAstate {
 
 	private void computeLambda() {
 		
-		for(int d=0; d < dat.D; d++) {
+		for(int d=0; d < holdoutIndex; d++) {
 			
 			Document doc = dat.docs.get(d);
 			
@@ -125,8 +151,10 @@ public class CorrLDAstate {
 				for(int i=0; i < param.K; i++) {
 					
 					double sm = 0;
-					for(int n=0; n < dat.Nd[d]; n++) {
-						sm += lam[n][m] * Math.log(beta[i][doc.labels[n]]);
+					if(d < holdoutIndex) {
+						for(int n=0; n < dat.Nd[d]; n++) {
+							sm += lam[n][m] * Math.log(beta[i][doc.labels[n]]);
+						}
 					}
 					
 					phi[d][m][i] = Math.log( pi[i][doc.words[m]]) + Gamma.digamma(gam[i]) - Gamma.digamma(sumGam) + sm;
@@ -203,8 +231,10 @@ public class CorrLDAstate {
 		pi = new double[param.K][dat.Vs];
 		for(int k=0; k < param.K; k++) {
 			for(int i=0; i < dat.Vs; i++) {
-				pi[k][i] = 1.0/dat.Vs;
+				//pi[k][i] = 1.0/dat.Vs;
+				pi[k][i] = rand.nextDouble();
 			}
+			pi[k] = Normalizer.normalize(pi[k]);
 		}
 	}
 	private void initializeBeta() {

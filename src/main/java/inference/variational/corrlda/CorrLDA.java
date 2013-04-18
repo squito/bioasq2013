@@ -1,6 +1,7 @@
 package inference.variational.corrlda;
 
 import inference.variational.common.AlgorithmParameters;
+import inference.variational.common.MatrixFunctions;
 import inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.io.BufferedReader;
@@ -9,6 +10,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class CorrLDA {
@@ -21,6 +23,7 @@ public class CorrLDA {
 	public CorrLDA(String corpusFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
 
 		List<Document> documents = readCorpusFile(corpusFilename, vocabSize, labelSize);
+		Collections.shuffle(documents);
 		dat = new CorrLDAdata(documents, vocabSize, labelSize);
 		param = new CorrLDAparameters(K);
 		algorithmParameters = new AlgorithmParameters(tolerance, maxIter, false);
@@ -32,18 +35,10 @@ public class CorrLDA {
 		
 		for(int iter = 0; iter < algorithmParameters.maxIter; iter++) {
 			System.out.println("Iteration: " + iter);
-			double [] gamma = state.getGamma()[1];
-			
-			for(int i=0; i < param.K; i++) {
-				System.out.print(gamma[i] + "  ");
-			}
-			System.out.println();
-			
 			state.iterate();
 		}
 		
 	}
-	
 	
 	public static void main(String[] args) throws IOException, InputFormatException { 
 
@@ -73,18 +68,30 @@ public class CorrLDA {
 		reader.close();
 
 		CorrLDA corrLDA = new CorrLDA(corpusFilename, vocabSize, labelSize, K, maxIter, 0.001);
-		corrLDA.infer();
 		
+		int holdoutIndex = (int)Math.ceil(corrLDA.dat.D*0.9);
+		System.out.println("holdoutIndex is " + holdoutIndex);
+		corrLDA.state.setHoldoutIndex(holdoutIndex);
+		corrLDA.infer();
+				
+		
+		CorrLDApredictor predictor = new CorrLDApredictor(corrLDA.state);
+				
 		ResultViewer viewer = new ResultViewer(vocabFilename, labelFilename);
 		viewer.loadDictionaries();
-		viewer.view(corrLDA);
+		//viewer.view(corrLDA);
+		
+		int docid = 1 + holdoutIndex;
+		viewer.viewLabelPrediction(predictor.labelPrediction(docid));
+		viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
+		
 		
 		System.out.println("Done.");
 		
 	}
 	
 	
-	private List<Document> readCorpusFile(String corpusFilename, int vocabSize, int labelSize) throws InputFormatException, IOException {
+	private static List<Document> readCorpusFile(String corpusFilename, int vocabSize, int labelSize) throws InputFormatException, IOException {
 
 		List<Document> documents = new ArrayList<Document>();
 

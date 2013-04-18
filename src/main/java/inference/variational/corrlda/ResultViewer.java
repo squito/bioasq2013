@@ -1,5 +1,7 @@
 package inference.variational.corrlda;
 
+import inference.variational.corrlda.CorrLDAdata.Document;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -8,6 +10,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class ResultViewer {
@@ -54,7 +57,7 @@ public class ResultViewer {
 	public void view(CorrLDA corrLDA) {
 		
 		System.out.println("--- pi ---");
-		double [][] pi = corrLDA.state.getPi();
+		double [][] pi = corrLDA.state.getBeta();
 		
 		ArrayList<ArrayList<LabelValue>> toSort = new ArrayList<ArrayList<LabelValue>>(); 
 		for(int i=0; i < corrLDA.param.K; i++) {
@@ -66,15 +69,39 @@ public class ResultViewer {
 			Collections.sort(toSort.get(i));
 			for(int j=0; j < corrLDA.dat.Vt; j++) {
 				System.out.print(String.format("%d %7.6f %s\n", i, toSort.get(i).get(j).value, toSort.get(i).get(j).label));
-				if(toSort.get(i).get(j).value < 0.002) {
+				if(toSort.get(i).get(j).value < 0.004) {
 					break;
 				}
 			}
 		}
 		
+	}
+	
+	public void viewLabelPrediction(double [] dist) {
+		
+		List<LabelValue> list = new ArrayList<LabelValue>();
+		for(int i=0; i < dist.length; i++) {
+			list.add(new LabelValue(labels.get(i), dist[i]));
+		}
+		
+		Collections.sort(list);
+		for(int i=0; i < 50; i++) {
+			System.out.println(String.format("%7.6f %s", list.get(i).value, list.get(i).label));
+		}
+		
+	}
+	
+	public void viewTrueLabels(Document doc) {
+
+		System.out.println("True label ---> ");
+		for(int i=0; i < doc.labels.length; i++) {
+			System.out.println(labels.get( doc.labels[i] ));
+		}
+		
 		
 		
 	}
+	
 	
 	private static class LabelValue implements Comparable<LabelValue>{
 		
