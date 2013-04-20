@@ -6,28 +6,51 @@ import inference.variational.corrlda.CorrLDAdata.Document;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-public class CorrLDA {
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
+import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
+import com.martiansoftware.jsap.Parameter;
+import com.martiansoftware.jsap.SimpleJSAP;
+import com.martiansoftware.jsap.UnflaggedOption;
+
+public class CorrLDA implements Serializable {
 
 	CorrLDAparameters param;
 	CorrLDAdata dat;
 	CorrLDAstate state;
 	AlgorithmParameters algorithmParameters;
 	
-	public CorrLDA(String corpusFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
+	String vocabFilename;
+	String labelFilename;
+	
+	
+	public CorrLDA() {}
+	
+	public CorrLDA(String corpusFilename, String vocabFilename, String labelFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
 
+		this.vocabFilename = vocabFilename;
+		this.labelFilename = labelFilename;
+		
 		List<Document> documents = readCorpusFile(corpusFilename, vocabSize, labelSize);
 		Collections.shuffle(documents);
 		dat = new CorrLDAdata(documents, vocabSize, labelSize);
 		param = new CorrLDAparameters(K);
 		algorithmParameters = new AlgorithmParameters(tolerance, maxIter, false);
 		state = new CorrLDAstate(dat, param, algorithmParameters);
+		
 		
 	}
 
@@ -40,56 +63,155 @@ public class CorrLDA {
 		
 	}
 	
-	public static void main(String[] args) throws IOException, InputFormatException { 
+	public static void main(String[] args) throws IOException, InputFormatException, JSAPException { 
 
-		if(args.length != 5) {
-			throw new RuntimeException("You need five arguments.");
-		}
+		SimpleJSAP jsap = new SimpleJSAP( CorrLDA.class.getName(), "Launches correspondence LDA.",
+	            new Parameter[] {
+	                new FlaggedOption("maxIter")
+	                .setStringParser(JSAP.INTEGER_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("maxIter")
+	                .setHelp("Number of iterations"),
+	                new FlaggedOption("corpus")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setLongFlag("corpus")
+	                .setHelp("Corpus filename"),
+	                new FlaggedOption("vocabFile")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setLongFlag("vocabFile")
+	                .setHelp("Vocab filename"),
+	                new FlaggedOption("labelFile")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setLongFlag("labelFile")
+	                .setHelp("Label filename"),
+	                new FlaggedOption("K")
+	                .setStringParser(JSAP.INTEGER_PARSER)	                
+	                .setLongFlag("K")
+	                .setHelp("Number of topics K"),
+	                new FlaggedOption("modelFile")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setLongFlag("modelFile")
+	                .setHelp("Model file to load instead of starting from scratch."),
+	                new FlaggedOption("tolerance")
+	                .setStringParser(JSAP.DOUBLE_PARSER)	                
+	                .setLongFlag("tol")
+	                .setDefault("0.001")
+	                .setHelp("Tolerance"),
+	                new FlaggedOption("holdoutPercent")
+	                .setStringParser(JSAP.DOUBLE_PARSER)	                
+	                .setLongFlag("holdoutPercent")
+	                .setDefault("10")
+	                .setHelp("Holdout Percentage"),
+	                new FlaggedOption("saveFile")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setLongFlag("saveFile")
+	                .setRequired(true)
+	                .setHelp("File name to save model to.")
+	                }
+		);
 		
-		String corpusFilename = args[0];
-		String vocabFilename = args[1];
-		String labelFilename = args[2];
-		int K = Integer.parseInt( args[3] );
-		int maxIter = Integer.parseInt( args[4] );
-		int vocabSize = 0;
-		int labelSize = 0;
-
-		BufferedReader reader = null;
-		reader = new BufferedReader(new FileReader(vocabFilename));
-		while(reader.readLine() != null) {
-			vocabSize++;
-		}
-		reader.close();
-
-		reader = new BufferedReader(new FileReader(labelFilename));
-		while(reader.readLine() != null) {
-			labelSize++;
-		}
-		reader.close();
-
-		CorrLDA corrLDA = new CorrLDA(corpusFilename, vocabSize, labelSize, K, maxIter, 0.001);
+		JSAPResult config = jsap.parse(args);    
+        if ( jsap.messagePrinted() ) System.exit( 1 );
 		
-		int holdoutIndex = (int)Math.ceil(corrLDA.dat.D*0.9);
-		System.out.println("holdoutIndex is " + holdoutIndex);
+		Integer maxIter = config.getInt("maxIter"); 
+		String corpusFilename = config.getString("corpus");
+		String vocabFilename = config.getString("vocabFile");
+		String labelFilename = config.getString("labelFile");
+		Integer K = config.getInt("K");
+		String modelFile = config.getString("modelFile");
+        Double tol = config.getDouble("tolerance");
+        Double holdoutFraction = config.getDouble("holdoutPercent")/100.0;
+        String saveFile = config.getString("saveFile");
+        
+		CorrLDA corrLDA = null;
+
+		if(modelFile != null) {
+			corrLDA = CorrLDA.load(modelFile);			
+			corrLDA.algorithmParameters.maxIter = maxIter;
+		} else {
+
+			if(corpusFilename == null || vocabFilename == null || labelFilename == null || K == null) {
+				throw new RuntimeException("You need to pass a corpus, vocabFile, labelFile, and K");
+			}
+			
+			int vocabSize = 0;
+			int labelSize = 0;
+
+			BufferedReader reader = null;
+			reader = new BufferedReader(new FileReader(vocabFilename));
+			while(reader.readLine() != null) {
+				vocabSize++;
+			}
+			reader.close();
+
+			reader = new BufferedReader(new FileReader(labelFilename));
+			while(reader.readLine() != null) {
+				labelSize++;
+			}
+			reader.close();
+
+			corrLDA = new CorrLDA(corpusFilename, vocabFilename, labelFilename, vocabSize, labelSize, K, maxIter, tol);
+		}
+
+		
+		int holdoutIndex = (int)Math.ceil(corrLDA.dat.D*holdoutFraction);
+		System.out.println("holdoutIndex is " + holdoutIndex);		
 		corrLDA.state.setHoldoutIndex(holdoutIndex);
+
 		corrLDA.infer();
-				
-		
+		corrLDA.save(saveFile);
+
 		CorrLDApredictor predictor = new CorrLDApredictor(corrLDA.state);
-				
-		ResultViewer viewer = new ResultViewer(vocabFilename, labelFilename);
+
+		ResultViewer viewer = new ResultViewer(corrLDA.vocabFilename, corrLDA.labelFilename);
 		viewer.loadDictionaries();
-		//viewer.view(corrLDA);
-		
+
 		int docid = 1 + holdoutIndex;
 		viewer.viewLabelPrediction(predictor.labelPrediction(docid));
 		viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
-		
 		
 		System.out.println("Done.");
 		
 	}
 	
+	protected static CorrLDA load(String filename) {
+		
+		FileInputStream fis = null;
+		ObjectInputStream in = null;
+		CorrLDA corrLDA = null;
+		try {
+			fis = new FileInputStream(filename);
+			in = new ObjectInputStream(fis);
+			corrLDA = (CorrLDA) in.readObject();
+			in.close();
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		} catch (ClassNotFoundException ex) {
+			ex.printStackTrace();
+		}
+		
+		if(corrLDA != null) {
+			System.out.println("State successfully read from file.");
+		}
+		return corrLDA;
+	}
+	
+	
+	protected void save(String filename) {
+		
+		FileOutputStream fos = null;
+		ObjectOutputStream out = null;
+		try {
+			fos = new FileOutputStream(filename);
+			out = new ObjectOutputStream(fos);
+			out.writeObject(this);
+			out.close();
+			System.out.println("CorrLDA saved.");
+		} catch (IOException ex) {
+			ex.printStackTrace();
+		}
+		
+	}
 	
 	private static List<Document> readCorpusFile(String corpusFilename, int vocabSize, int labelSize) throws InputFormatException, IOException {
 

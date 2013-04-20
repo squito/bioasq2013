@@ -1,8 +1,9 @@
 package inference.variational.corrlda;
 
+import java.io.Serializable;
 import java.util.List;
 
-public class CorrLDAdata {
+public class CorrLDAdata implements Serializable {
 
 	public List<Document> docs;
 	int Vs;  // Number of vocab words total. 
@@ -12,6 +13,8 @@ public class CorrLDAdata {
 	int D;   
 	int [] Md;
 	int [] Nd;
+	
+	public CorrLDAdata() {}
 	
 	public CorrLDAdata(List<Document> docs, int vocabSize, int labelSize) {
 		this.Vs = vocabSize;
@@ -37,9 +40,12 @@ public class CorrLDAdata {
 		return s.toString();
 	}
 	
-	public static class Document {
+	public static class Document implements Serializable {
 		public int [] words;
 		public int [] labels;
+		
+		public Document() {}
+		
 		public Document(int [] words, int [] labels) {
 			this.words = words;
 			this.labels = labels;
