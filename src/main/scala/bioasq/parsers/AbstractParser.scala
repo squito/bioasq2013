@@ -42,9 +42,24 @@ object AbstractParser extends ArgMain[ParserArgs] with Logging {
       )
     }
 
-    if (args.testSet != null) {
-      val testSet = parseTestAbstracts(DataFiles.testSetAbstractJson("1"))
-      println("testSet size = " + testSet.size)
+    if (args.addJournalToTestSet != null) {
+      val testSetNoJournal = parseTestAbstracts(DataFiles.testSetAbstractJsonNoJournal(args.addJournalToTestSet))
+      val testSetWithJournal = new ArrayBuffer[TestAbstract]
+      testSetNoJournal.grouped(500).foreach{absGroup =>
+        Thread.sleep(500)  //dont' overload the pubmed servers
+        val pmids = absGroup.map{_.pmid}
+        val pmidToJournal = Pubmed.extractMultipleJournals(Pubmed.downloadMultiSummaries(pmids))
+        info("got journal for " + pmidToJournal.size + " out of " + pmids.size)
+        absGroup.foreach{abs =>
+          testSetWithJournal += abs.copy(journal = pmidToJournal.get(abs.pmid))
+        }
+      }
+      val om = new ObjectMapper()
+      om.registerModule(DefaultScalaModule)
+      om.writeValue(
+        new File(DataFiles.testSetAbstractJson(args.addJournalToTestSet)),
+        new TestSet(documents=testSetWithJournal)
+      )
     }
   }
 
@@ -103,7 +118,7 @@ class ParserArgs extends FieldArgs {
   var toIntVectors = false
   var featureSetName: String = _
   var minFrac = 1e-5
-  var testSet: String = _
+  var addJournalToTestSet: String = _
   var minYear: Int = 2000
 }
 
@@ -170,7 +185,8 @@ object AbstractFeaturizer extends MurmurFeaturizer[Abstract] {
 case class TestAbstract(
   val pmid: String,
   val title: String,
-  val `abstract`: String
+  val `abstract`: String,
+  val journal: Option[String]
   //not sure if there is an implicit "year" as well
 )
 
