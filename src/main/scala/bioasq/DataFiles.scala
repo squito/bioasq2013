@@ -21,6 +21,7 @@ object DataFiles {
   def trainingIntVectorFileSet(featurizeName: String) = new VectorFileSet(DataDir + "/training/featurized/" + featurizeName + "/int")
 
   def testSetDir(testSetId: String) = DataDir + "/testsets/" + testSetId
-  def testSetAbstractJson(testSetId: String) = testSetDir(testSetId) + "/testset.txt"
+  def testSetAbstractJsonNoJournal(testSetId: String) = testSetDir(testSetId) + "/testset.txt"
+  def testSetAbstractJson(testSetId: String) = testSetDir(testSetId) + "/testsetWithJournal.txt"
   def testSetResultJson(testSetId: String, systemId: String) = testSetDir(testSetId) + "/" + systemId + ".json"
 }
