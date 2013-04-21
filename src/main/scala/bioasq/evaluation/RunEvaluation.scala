@@ -63,7 +63,22 @@ object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
 
 }
 
-class RunEvaluationArgs extends FieldArgs {
+class RunEvaluationArgs extends MatrixLoaderArgs
+
+
+class MatrixLoaderArgs extends FieldArgs {
   var maxBytes: Long = 1e8.toLong
-  var featureSetName: String = _
+  var featureSetName: String = "2010_plus"
+
+  lazy val fileSet = trainingIntVectorFileSet(featureSetName).sampleSizeLimitIntVectors(maxBytes)
+  lazy val mat = VectorIO.loadMatrix(fileSet)
+
+  lazy val codeLookup = ArrayCodeLookup.loadFromText(mat.nCols, scala.io.Source.fromFile(fileSet.getMergedDictionaryFile))
+  lazy val revLookup = {
+    val t = new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap[String]()
+    (0 until codeLookup.arr.size).foreach{idx => t.put(codeLookup(idx), idx)}
+    t
+  }
+
+
 }
