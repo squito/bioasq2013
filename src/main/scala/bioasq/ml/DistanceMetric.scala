@@ -64,3 +64,32 @@ trait SameJournalDistanceMetric extends DistanceMetric {
     }
   }
 }
+
+
+trait WeightedEuclideanDistance extends DistanceMetric {
+  val weights: Array[Double]
+  def distance(row1: BaseSparseBinaryVector, row2: BaseSparseBinaryVector): Float = {
+    var idx1 = row1.startIdx
+    var idx2 = row2.startIdx
+    var sum = 0d
+    while (idx1 < row1.endIdx && idx2 < row2.endIdx) {
+      val c1 = row1.colIds(idx1)
+      val c2 = row2.colIds(idx2)
+      if (c1 == c2) {
+        //both agree, add 0 to distance
+        idx1 += 1
+        idx2 += 1
+      } else if (c1 < c2) {
+        //vectors differ by 1 at c1
+        idx1 += 1
+        sum += weights(c1)
+      } else {
+        //vectors differ by 1 at c2
+        idx2 += 1
+        sum += weights(c2)
+      }
+    }
+    math.sqrt(sum).toFloat
+
+  }
+}
