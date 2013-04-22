@@ -12,6 +12,7 @@ import collection.JavaConverters._
 import org.sblaj.featurization.ArrayCodeLookup
 import org.sblaj.util.Logging
 import bioasq.parsers.AbstractFeaturizer
+import java.io.File
 
 
 /**
@@ -22,6 +23,7 @@ object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
   def main(args: RunEvaluationArgs) {
     val fileSet = trainingIntVectorFileSet(args.featureSetName).sampleSizeLimitIntVectors(args.maxBytes)
     val mat = VectorIO.loadMatrix(fileSet)
+    info("matrix: " + mat)
 
     val codeLookup = ArrayCodeLookup.loadFromText(mat.nCols, scala.io.Source.fromFile(fileSet.getMergedDictionaryFile))
     val revLookup = new it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap[String]()
@@ -30,27 +32,32 @@ object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
     val meshIdMap = revLookup.asScala.filter{case(k,v) => k.startsWith(AbstractFeaturizer.MESH_PREFIX)}
     val meshIds = meshIdMap.map{_._2.toInt}.toArray.sorted
 
-    val allJournalIdMap = revLookup.asScala.filter{case(k,v) => k.startsWith(AbstractFeaturizer.JOURNAL_PREFIX)}
-    val allJournalIds = allJournalIdMap.map{_._2.toInt}.toArray.sorted
-
-    val knn = new KNN(mat) with CosineDistance
-    val journalKnn = new KNN(mat) with SameJournalDistanceMetric{
-      val journalIds = allJournalIds
-      val subMetric = CosineDistance
+    val cosKnn = new KNN(mat) with CosineDistance
+    val eucKnn = new KNN(mat) with EuclideanDistance
+    val distanceWeights = MeshConditionalCounts.readLifts(args.weightFile)
+    val wEucKnn = new KNN(mat) with WeightedEuclideanDistance{
+      val weights = distanceWeights
     }
 
-    val errors = new ErrorCounts(meshIds)
-    val jErrors = new ErrorCounts(meshIds)
+    val cosErrors = new ErrorCounts(meshIds)
+    val eucErrors = new ErrorCounts(meshIds)
+    val wEucErrors = new ErrorCounts(meshIds)
 
-    (0 until 100).foreach{rowNum =>
-      val truth = mat.getRow(rowNum)
-      val pred = mat.getRow(knn.nearest(truth, rowNum))
-      errors.addPrediction(pred, truth)
-      val jPred = mat.getRow(journalKnn.nearest(truth, rowNum))
-      jErrors.addPrediction(jPred, truth)
+    args.evalIds.foreach{evalRowStart =>
+      val s = if (evalRowStart < 0) mat.nRows + evalRowStart else evalRowStart
+      info("beginning eval block at row " + s)
+      (s until s + args.evalBlockSize).foreach{ rowNum =>
+        val truth = mat.getRow(rowNum)
+        val cosPred = mat.getRow(cosKnn.nearest(truth, rowNum))
+        cosErrors.addPrediction(cosPred, truth)
+        val eucPred = mat.getRow(eucKnn.nearest(truth, rowNum))
+        eucErrors.addPrediction(eucPred, truth)
+        val wEucPred = mat.getRow(wEucKnn.nearest(truth, rowNum))
+        wEucErrors.addPrediction(wEucPred, truth)
 
-      if (rowNum % 10 == 0) {
-        info("[COSINE: " + errors + "]\t[J-COSINE: " + jErrors + "]")
+        if (cosErrors.nSamples % 10 == 0) {
+          info("%80s%80s%80s".format("[COSINE: " + cosErrors + "]", "[EUC: " + eucErrors + "]", "[W-EUC: " + wEucErrors+ "]"))
+        }
       }
     }
   }
@@ -63,7 +70,11 @@ object RunEvaluation extends ArgMain[RunEvaluationArgs] with Logging {
 
 }
 
-class RunEvaluationArgs extends MatrixLoaderArgs
+class RunEvaluationArgs extends MatrixLoaderArgs {
+  var weightFile = "max_mesh_lifts.bin"
+  var evalIds = List(0,593, 1345,5791,34931,134807, -5000, -200)
+  var evalBlockSize = 10
+}
 
 
 class MatrixLoaderArgs extends FieldArgs {
