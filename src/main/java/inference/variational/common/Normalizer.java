@@ -23,6 +23,10 @@ public class Normalizer {
 			sum += r[i];
 		}
 		
+		if(sum <= 0) {
+			System.err.println("In normalizeFromLog, sum = " + sum);
+		}
+		
 		// Normalize.
 		for(int i=0; i < y.length; i++) {
 			r[i] = r[i]/sum;
@@ -33,6 +37,9 @@ public class Normalizer {
 
 	public static double[] normalize(double [] y) {
 		double sum = MatrixFunctions.sum(y);
+		if(sum <= 0) {
+			System.err.println("In normalize, sum = " + sum);
+		}
 		double [] r = MatrixFunctions.op(y, o.divide, sum);		
 		return r;
  	}

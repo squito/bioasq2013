@@ -29,7 +29,8 @@ public class CorrLDAstate implements Serializable {
 	double [][] pi; // parameter for labels.  K x Vs
 	double [][] beta; // parameter for words. K x Vt
 	double [] alpha; // dirichlet parameter for topics.  K
-
+	double objective = Double.NEGATIVE_INFINITY; // The lower bound we are maximizing. 
+	
 	private CorrLDAdata dat;
 	private CorrLDAparameters param;
 	private AlgorithmParameters algParam;
@@ -83,6 +84,100 @@ public class CorrLDAstate implements Serializable {
 		computeAlpha();
 		computePi();
 		computeBeta();
+		
+	}
+	
+	
+	protected void computeObjective() {
+		
+		double term1 = dat.D * Gamma.logGamma( MatrixFunctions.sum(alpha) );
+
+		double term2 = 0;
+		for(int i=0; i < param.K; i++) {
+			term2 += Gamma.logGamma(alpha[i]);
+		}
+		term2 *= dat.D;
+		
+		double term3 = 0;
+		for(int d=0; d < dat.D; d++) {			
+			for(int i=0; i < param.K; i++) {
+				term3 += (alpha[i] - 1) * (Gamma.digamma(gamma[d][i]) - Gamma.digamma(sumGamma[d]) );
+			}
+		}
+		
+		double term4 = 0;
+		for(int d=0; d < dat.D; d++) {
+			for(int m=0; m < dat.Md[d]; m++) {
+				for(int i=0; i < param.K; i++) {
+					term4 += ( Gamma.digamma(gamma[d][i]) - Gamma.digamma(sumGamma[d]) ) * phi[d][m][i];
+				}
+			}
+		}
+		
+		double term5 = 0;
+		for(int d=0; d < dat.D; d++) {
+			for(int m=0; m < dat.Md[d]; m++) {
+				for(int i=0; i < param.K; i++) {
+					term5 += phi[d][m][i] * Math.log( pi[i][dat.docs.get(d).words[m]] );
+				}
+			}
+		}
+		
+		double term6 = 0;
+		for(int d=0; d < holdoutIndex; d++) {
+			for(int n=0; n < dat.Nd[d]; n++) {
+				for(int i=0; i < param.K; i++) {
+					
+					if(beta[i][dat.docs.get(d).labels[n]] <= 0) {
+						System.out.println("beta is less than or equal to zero!");
+						System.out.println("n: " + n + " i: " + i + " d: " + d + "  " + beta[i][dat.docs.get(d).labels[n]]);
+					}
+					
+					for(int m=0; m < dat.Md[d]; m++) {
+						term6 += phi[d][m][i] * lambda[d][n][m] * Math.log( beta[i][dat.docs.get(d).labels[n]] );
+					}
+				}
+			}
+		}
+		
+		double term7 = 0;		
+		for(int d=0; d < dat.D; d++) {
+			term7 += Gamma.logGamma(sumGamma[d]);
+		}
+		
+		double term8 = 0;
+		for(int d=0; d < dat.D; d++) {
+			for(int i=0; i < param.K; i++) {
+				term8 += Gamma.logGamma(gamma[d][i]);
+			}
+		}	
+
+		double term9 = 0;
+		for(int d=0; d < dat.D; d++) {
+			for(int i=0; i < param.K; i++) {
+				term9 += (gamma[d][i] - 1) * (Gamma.digamma(gamma[d][i]) - Gamma.digamma(sumGamma[d]));
+			}
+		}
+
+		double term10 = 0;
+		for(int d=0; d < dat.D; d++) {
+			for(int m=0; m < dat.Md[d]; m++) {
+				for(int i=0; i < param.K; i++) {
+					term10 += phi[d][m][i] * Math.log(phi[d][m][i]);
+				}
+			}
+		}
+
+		double term11 = 0;
+		for(int d=0; d < holdoutIndex; d++) {
+			for(int m=0; m < dat.Md[d]; m++) {
+				for(int n=0; n < dat.Nd[d]; n++) {
+					term11 += lambda[d][n][m] * Math.log(lambda[d][n][m]);
+				}
+			}
+		}
+		
+		objective = term1 - term2 + term3 + term4 + term5 + term6 - term7 + term8 - term9 - term10 - term11;
 		
 	}
 	
@@ -162,7 +257,12 @@ public class CorrLDAstate implements Serializable {
 						}
 					}
 					
-					phi[d][m][i] = Math.log( pi[i][doc.words[m]]) + Gamma.digamma(gam[i]) - Gamma.digamma(sumGam) + sm;
+					try {
+						phi[d][m][i] = Math.log( pi[i][doc.words[m]]) + Gamma.digamma(gam[i]) - Gamma.digamma(sumGam) + sm;
+					} catch (StackOverflowError e) {
+						System.out.println(" Stack overflow error. Trying to take digamma(" + gam[i] + ") and digamma(" + sumGam + ").  i = " + i );
+						throw new StackOverflowError();
+					}
 
 				}
 
@@ -281,5 +381,8 @@ public class CorrLDAstate implements Serializable {
 		return alpha;
 	}
 	
+	public double getObjective() {
+		return objective;
+	}
 	
 }

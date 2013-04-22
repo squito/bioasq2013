@@ -35,14 +35,15 @@ public class CorrLDA implements Serializable {
 	
 	String vocabFilename;
 	String labelFilename;
-	
+	String saveFilename;
 	
 	public CorrLDA() {}
 	
-	public CorrLDA(String corpusFilename, String vocabFilename, String labelFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
+	public CorrLDA(String corpusFilename, String vocabFilename, String labelFilename, String saveFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
 
 		this.vocabFilename = vocabFilename;
 		this.labelFilename = labelFilename;
+		this.saveFilename = saveFilename;
 		
 		List<Document> documents = readCorpusFile(corpusFilename, vocabSize, labelSize);
 		Collections.shuffle(documents);
@@ -57,8 +58,15 @@ public class CorrLDA implements Serializable {
 	protected void infer() {
 		
 		for(int iter = 0; iter < algorithmParameters.maxIter; iter++) {
-			System.out.println("Iteration: " + iter);
+			
 			state.iterate();
+			if(iter % 10 == 0) {
+				state.computeObjective();
+				System.out.println(String.format("Iteration: %d (%9.8f)", iter, state.getObjective()));
+				save();
+			} else {
+				System.out.println(String.format("Iteration: %d", iter));
+			}
 		}
 		
 	}
@@ -117,7 +125,7 @@ public class CorrLDA implements Serializable {
 		String corpusFilename = config.getString("corpus");
 		String vocabFilename = config.getString("vocabFile");
 		String labelFilename = config.getString("labelFile");
-		Integer K = config.getInt("K");
+		Integer K = config.contains("K") ? config.getInt("K") : null;
 		String modelFile = config.getString("modelFile");
         Double tol = config.getDouble("tolerance");
         Double holdoutFraction = config.getDouble("holdoutPercent")/100.0;
@@ -150,7 +158,7 @@ public class CorrLDA implements Serializable {
 			}
 			reader.close();
 
-			corrLDA = new CorrLDA(corpusFilename, vocabFilename, labelFilename, vocabSize, labelSize, K, maxIter, tol);
+			corrLDA = new CorrLDA(corpusFilename, vocabFilename, labelFilename, saveFile, vocabSize, labelSize, K, maxIter, tol);
 		}
 
 		
@@ -159,16 +167,17 @@ public class CorrLDA implements Serializable {
 		corrLDA.state.setHoldoutIndex(holdoutIndex);
 
 		corrLDA.infer();
-		corrLDA.save(saveFile);
+		corrLDA.save();
 
 		CorrLDApredictor predictor = new CorrLDApredictor(corrLDA.state);
 
 		ResultViewer viewer = new ResultViewer(corrLDA.vocabFilename, corrLDA.labelFilename);
 		viewer.loadDictionaries();
 
-		int docid = 1 + holdoutIndex;
-		viewer.viewLabelPrediction(predictor.labelPrediction(docid));
-		viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
+		for(int docid = 1 + holdoutIndex; docid < 100 + holdoutIndex; docid++) {
+			viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
+			viewer.viewLabelPrediction(predictor.labelPrediction(docid));
+		}
 		
 		System.out.println("Done.");
 		
@@ -176,6 +185,8 @@ public class CorrLDA implements Serializable {
 	
 	protected static CorrLDA load(String filename) {
 		
+		
+		System.out.println("Reading from saved model file...");
 		FileInputStream fis = null;
 		ObjectInputStream in = null;
 		CorrLDA corrLDA = null;
@@ -191,18 +202,18 @@ public class CorrLDA implements Serializable {
 		}
 		
 		if(corrLDA != null) {
-			System.out.println("State successfully read from file.");
+			System.out.println("Model successfully read from file.");
 		}
 		return corrLDA;
 	}
 	
 	
-	protected void save(String filename) {
+	protected void save() {
 		
 		FileOutputStream fos = null;
 		ObjectOutputStream out = null;
 		try {
-			fos = new FileOutputStream(filename);
+			fos = new FileOutputStream(saveFilename);
 			out = new ObjectOutputStream(fos);
 			out.writeObject(this);
 			out.close();

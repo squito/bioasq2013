@@ -85,7 +85,7 @@ public class ResultViewer {
 		}
 		
 		Collections.sort(list);
-		for(int i=0; i < 50; i++) {
+		for(int i=0; i < 10; i++) {
 			System.out.println(String.format("%7.6f %s", list.get(i).value, list.get(i).label));
 		}
 		
