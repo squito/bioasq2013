@@ -8,8 +8,10 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 
 import com.google.gson.Gson;
 
@@ -29,8 +31,10 @@ public class JsonToCorrLDA {
 		try {
 			docWriter = new BufferedWriter(new FileWriter(args[1]));
 			vocabWriter = new BufferedWriter(new FileWriter(args[2]));
-			labelWriter = new BufferedWriter(new FileWriter(args[3]));			
-			FormatConverter converter = new FormatConverter(documents);
+			labelWriter = new BufferedWriter(new FileWriter(args[3]));	
+			KeepWordsIdentifier identifier = new KeepWordsIdentifier(documents, 20);
+			Set<String> keepWords = identifier.identify();
+			FormatConverter converter = new FormatConverter(documents, keepWords);
 			converter.convert(docWriter, vocabWriter, labelWriter);
 
 		} catch (FileNotFoundException e) {
@@ -61,14 +65,59 @@ public class JsonToCorrLDA {
 	}
 
 
+	private static class KeepWordsIdentifier {
+	
+		List<Article> docs;
+		int threshold;
+		
+		public KeepWordsIdentifier(List<Article> docs, int threshold) {
+			this.docs = docs;
+			this.threshold = threshold;
+		}
+
+		public Set<String> identify() {
+			
+			HashMap<String, Integer> count = new HashMap<String, Integer>();
+			for(Article a : docs) {
+				
+				for(String s : abstractWords(a.abstractText)) {
+					Integer n = count.get(s);
+					if(n == null) {
+						count.put(s, 1);
+					} else {
+						count.put(s, 1 + n);
+					}
+				}
+				
+			}
+			
+			HashSet<String> keepWords = new HashSet<String>();
+			for(String s : count.keySet()) {
+				if(count.get(s) >= threshold) {
+					keepWords.add(s);
+				}
+			}
+			
+			System.out.println("Total number of unique words: " + count.size());
+			System.out.println("Total kept words with threshold " + threshold + " : " + keepWords.size()); 
+			 
+			return keepWords;
+			
+		}
+		
+	}
+	
+	
 	private static class FormatConverter {
 
 		LinkedHashMap<String, Integer> vocab = new LinkedHashMap<String, Integer>();
 		LinkedHashMap<String, Integer> labelVocab = new LinkedHashMap<String, Integer>();
 		List<Article> docs;		
+		Set<String>keepWords;
 
-		public FormatConverter(List<Article> docs) {
+		public FormatConverter(List<Article> docs, Set<String> keepWords) {
 			this.docs = docs;
+			this.keepWords = keepWords;
 		}
 
 		public void convert(BufferedWriter docWriter, BufferedWriter vocabWriter, BufferedWriter labelWriter) throws IOException {
@@ -81,7 +130,7 @@ public class JsonToCorrLDA {
 				List<String> abstractWords = abstractWords(a.abstractText);				
 				for(String w : abstractWords) {
 
-					if(Stopwords.stopwords.contains(w) || w.length() < 2) {
+					if(Stopwords.stopwords.contains(w) || w.length() < 2 || (!keepWords.contains(w))) {
 						continue;
 					}
 
@@ -119,17 +168,7 @@ public class JsonToCorrLDA {
 			System.out.println("Successfully wrote vocabulary files.");
 		}
 
-		private List<String> abstractWords(String abstractText) {
-
-			String [] strings = abstractText.toLowerCase().replaceAll("[^A-Za-z0-9 ]", "").split(" ");
-			List<String> abstractWords = new ArrayList<String>();
-			for(String s : strings) {
-				abstractWords.add(s);
-			}
-
-			return abstractWords;
-		}
-
+		
 		private void writeVocab(BufferedWriter bw, LinkedHashMap<String, Integer> vocab) throws IOException {
 
 			for(String w : vocab.keySet()) {
@@ -140,5 +179,17 @@ public class JsonToCorrLDA {
 
 	}
 
+	private static List<String> abstractWords(String abstractText) {
+
+		String [] strings = abstractText.toLowerCase().replaceAll("[^A-Za-z0-9 ]", "").split(" ");
+		List<String> abstractWords = new ArrayList<String>();
+		for(String s : strings) {
+			abstractWords.add(s);
+		}
+
+		return abstractWords;
+	}
+
+	
 
 }

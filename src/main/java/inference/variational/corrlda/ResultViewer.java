@@ -67,11 +67,9 @@ public class ResultViewer {
 			}
 			
 			Collections.sort(toSort.get(i));
-			for(int j=0; j < corrLDA.dat.Vt; j++) {
+			System.out.println("----");
+			for(int j=0; j < 30; j++) {
 				System.out.print(String.format("%d %7.6f %s\n", i, toSort.get(i).get(j).value, toSort.get(i).get(j).label));
-				if(toSort.get(i).get(j).value < 0.004) {
-					break;
-				}
 			}
 		}
 		

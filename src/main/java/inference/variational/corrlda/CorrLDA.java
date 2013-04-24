@@ -128,7 +128,7 @@ public class CorrLDA implements Serializable {
 		Integer K = config.contains("K") ? config.getInt("K") : null;
 		String modelFile = config.getString("modelFile");
         Double tol = config.getDouble("tolerance");
-        Double holdoutFraction = config.getDouble("holdoutPercent")/100.0;
+        Double holdoutFraction = (100 - config.getDouble("holdoutPercent"))/100.0;
         String saveFile = config.getString("saveFile");
         
 		CorrLDA corrLDA = null;
@@ -178,6 +178,8 @@ public class CorrLDA implements Serializable {
 			viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
 			viewer.viewLabelPrediction(predictor.labelPrediction(docid));
 		}
+		
+		viewer.view(corrLDA);
 		
 		System.out.println("Done.");
 		

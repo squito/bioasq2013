@@ -90,7 +90,7 @@ public class CorrLDAstate implements Serializable {
 	
 	protected void computeObjective() {
 		
-		double term1 = dat.D * Gamma.logGamma( MatrixFunctions.sum(alpha) );
+		double term1 = (double)dat.D * Gamma.logGamma( MatrixFunctions.sum(alpha) );
 
 		double term2 = 0;
 		for(int i=0; i < param.K; i++) {
@@ -118,7 +118,9 @@ public class CorrLDAstate implements Serializable {
 		for(int d=0; d < dat.D; d++) {
 			for(int m=0; m < dat.Md[d]; m++) {
 				for(int i=0; i < param.K; i++) {
-					term5 += phi[d][m][i] * Math.log( pi[i][dat.docs.get(d).words[m]] );
+					if(pi[i][dat.docs.get(d).words[m]] != 0) {  // if this is true, then I believe term += 0.
+						term5 += phi[d][m][i] * Math.log( pi[i][dat.docs.get(d).words[m]] );
+					}
 				}
 			}
 		}
@@ -127,12 +129,6 @@ public class CorrLDAstate implements Serializable {
 		for(int d=0; d < holdoutIndex; d++) {
 			for(int n=0; n < dat.Nd[d]; n++) {
 				for(int i=0; i < param.K; i++) {
-					
-					if(beta[i][dat.docs.get(d).labels[n]] <= 0) {
-						System.out.println("beta is less than or equal to zero!");
-						System.out.println("n: " + n + " i: " + i + " d: " + d + "  " + beta[i][dat.docs.get(d).labels[n]]);
-					}
-					
 					for(int m=0; m < dat.Md[d]; m++) {
 						term6 += phi[d][m][i] * lambda[d][n][m] * Math.log( beta[i][dat.docs.get(d).labels[n]] );
 					}
@@ -163,7 +159,9 @@ public class CorrLDAstate implements Serializable {
 		for(int d=0; d < dat.D; d++) {
 			for(int m=0; m < dat.Md[d]; m++) {
 				for(int i=0; i < param.K; i++) {
-					term10 += phi[d][m][i] * Math.log(phi[d][m][i]);
+					if(phi[d][m][i] != 0) {  // limit of xlog(x) as x --> 0 is zero. 
+						term10 += phi[d][m][i] * Math.log(phi[d][m][i]);
+					}
 				}
 			}
 		}
@@ -176,6 +174,19 @@ public class CorrLDAstate implements Serializable {
 				}
 			}
 		}
+		
+		System.out.println();
+		System.out.println("1: " + term1);
+		System.out.println("2: " + term2);
+		System.out.println("3: " + term3);
+		System.out.println("4: " + term4);
+		System.out.println("5: " + term5);
+		System.out.println("6: " + term6);
+		System.out.println("7: " + term7);
+		System.out.println("8: " + term8);
+		System.out.println("9: " + term9);
+		System.out.println("10: " + term10);
+		System.out.println("11: " + term11);
 		
 		objective = term1 - term2 + term3 + term4 + term5 + term6 - term7 + term8 - term9 - term10 - term11;
 		
@@ -353,7 +364,7 @@ public class CorrLDAstate implements Serializable {
 	private void initializeAlpha() {
 		alpha = new double[param.K];
 		for(int k=0; k < param.K; k++) {
-			alpha[k] = 1.0/param.K;
+			alpha[k] = 1.0;
 		}
 	}
 	
