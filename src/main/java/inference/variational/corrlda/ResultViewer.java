@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class ResultViewer {
 
@@ -75,7 +76,7 @@ public class ResultViewer {
 		
 	}
 	
-	public void viewLabelPrediction(double [] dist) {
+	public List<LabelValue> viewLabelPrediction(double [] dist) {
 		
 		List<LabelValue> list = new ArrayList<LabelValue>();
 		for(int i=0; i < dist.length; i++) {
@@ -83,11 +84,31 @@ public class ResultViewer {
 		}
 		
 		Collections.sort(list);
-		for(int i=0; i < 10; i++) {
-			System.out.println(String.format("%7.6f %s", list.get(i).value, list.get(i).label));
+		List<LabelValue> topLabels = list.subList(0, 10);
+		
+		for(LabelValue l : topLabels) {
+			System.out.println(String.format("%7.6f %s", l.value, l.label));
 		}
+				
+		return topLabels;
 		
 	}
+	
+	public void viewNumberMatching(Document doc, List<LabelValue> prediction) {
+		
+		int matching = 0;		
+		for(int i : doc.labels) {
+			for(LabelValue l : prediction) {
+				if(labels.get(i).equals(l.label)) {
+					matching += 1;
+				}
+			}
+			
+		}
+		System.out.println(String.format("MATCHED: %d", matching));
+		
+	}
+	
 	
 	public void viewTrueLabels(Document doc) {
 
@@ -95,13 +116,10 @@ public class ResultViewer {
 		for(int i=0; i < doc.labels.length; i++) {
 			System.out.println(labels.get( doc.labels[i] ));
 		}
-		
-		
-		
 	}
 	
 	
-	private static class LabelValue implements Comparable<LabelValue>{
+	static class LabelValue implements Comparable<LabelValue>{
 		
 		String label;
 		double value;

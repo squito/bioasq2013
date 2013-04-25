@@ -11,13 +11,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import com.google.gson.Gson;
 
 public class JsonToCorrLDA {
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws KeepWordsTooSmallException {
 
 		int numberArticlesToRead = Integer.parseInt(args[4]);
 		Gson gson = new Gson();
@@ -32,8 +34,9 @@ public class JsonToCorrLDA {
 			docWriter = new BufferedWriter(new FileWriter(args[1]));
 			vocabWriter = new BufferedWriter(new FileWriter(args[2]));
 			labelWriter = new BufferedWriter(new FileWriter(args[3]));	
-			KeepWordsIdentifier identifier = new KeepWordsIdentifier(documents, 20);
-			Set<String> keepWords = identifier.identify();
+			KeepWordsIdentifier identifier = new KeepWordsIdentifier(documents);
+//			Set<String> keepWords = identifier.identifyHighFreq(20);
+			Set<String> keepWords = identifier.identifyTfidf(13.0);
 			FormatConverter converter = new FormatConverter(documents, keepWords);
 			converter.convert(docWriter, vocabWriter, labelWriter);
 
@@ -69,44 +72,108 @@ public class JsonToCorrLDA {
 	
 		List<Article> docs;
 		int threshold;
+		double tfidfThreshold;
+		private Map<String, Integer> totalFreq;  // Total number of times word appears anywhere.
+		private Map<String, Integer> docFreq;    // Number of documents that have the word.
+		private Map<String, Double> idf;        // Inverse doc freq = log(D/docFreq).
+		private Map<String, Integer> maxTf;     // Maximum term frequency across all docs. 
+		private Map<String, Double> maxTfIdf;   // Maximum tfidf across all docs. 
 		
-		public KeepWordsIdentifier(List<Article> docs, int threshold) {
+		public KeepWordsIdentifier(List<Article> docs) {
 			this.docs = docs;
-			this.threshold = threshold;
 		}
 
-		public Set<String> identify() {
+		protected Set<String> identifyHighFreq(int threshold) {
 			
-			HashMap<String, Integer> count = new HashMap<String, Integer>();
-			for(Article a : docs) {
-				
-				for(String s : abstractWords(a.abstractText)) {
-					Integer n = count.get(s);
-					if(n == null) {
-						count.put(s, 1);
-					} else {
-						count.put(s, 1 + n);
-					}
-				}
-				
-			}
-			
-			HashSet<String> keepWords = new HashSet<String>();
-			for(String s : count.keySet()) {
-				if(count.get(s) >= threshold) {
-					keepWords.add(s);
+			this.threshold = threshold;
+			computeCounts();
+			Set<String> keepWords = new HashSet<String>();
+			for(Entry<String, Integer> e : totalFreq.entrySet()) {
+				if(e.getValue() >= threshold) {
+					keepWords.add(e.getKey());
 				}
 			}
 			
-			System.out.println("Total number of unique words: " + count.size());
+			System.out.println("Total number of unique words: " + totalFreq.size());
 			System.out.println("Total kept words with threshold " + threshold + " : " + keepWords.size()); 
 			 
 			return keepWords;
 			
 		}
 		
+		protected Set<String> identifyTfidf(double tfidfThreshold) {
+			
+			this.tfidfThreshold = tfidfThreshold;
+			computeCounts();
+			Set<String> keepWords = new HashSet<String>();
+			for(Entry<String, Double> e : maxTfIdf.entrySet()) {
+				if(e.getValue() >= tfidfThreshold) {
+					keepWords.add(e.getKey());
+				}
+			}
+			
+			System.out.println("Total number of unique words: " + totalFreq.size());
+			System.out.println("Total kept words with tfidf threshold " + tfidfThreshold + " : " + keepWords.size()); 
+			 
+			return keepWords;
+			
+		}
+		
+		
+		
+		private void computeCounts() {
+			
+			totalFreq = new HashMap<String, Integer>();
+			docFreq = new HashMap<String, Integer>();			
+			idf = new HashMap<String, Double>();
+			maxTf = new HashMap<String, Integer>();
+			maxTfIdf = new HashMap<String, Double>();
+			
+			for(Article a : docs) {
+				
+				List<String> words = abstractWords(a.abstractText);
+
+				accumulateMap(new HashSet<String>(words), docFreq);
+				accumulateMap(words, totalFreq);	
+																
+				Map<String, Integer> thisDoc = new HashMap<String, Integer>();
+				accumulateMap(words, thisDoc);
+				
+				for(Entry<String, Integer> e : thisDoc.entrySet()) {
+					Integer n = maxTf.get(e.getKey());
+					if(n == null || e.getValue() > n) {
+						maxTf.put(e.getKey(), e.getValue());
+					}
+				}
+				
+			}
+			
+			for(Entry<String, Integer> e : docFreq.entrySet()) {
+				idf.put(e.getKey(), Math.log( (double)docs.size()/e.getValue() )  );
+			}
+			
+			for(Entry<String, Integer> e : maxTf.entrySet()) {
+				maxTfIdf.put(e.getKey(), e.getValue() * idf.get(e.getKey()));
+			}
+			
+			
+		}
+		
 	}
 	
+	private static void accumulateMap(Iterable<String> iterable, Map<String, Integer> map) {
+		for(String s : iterable) {
+			Integer n = map.get(s);
+			if(n == null) {
+				map.put(s, 1);
+			} else {
+				map.put(s, 1 + n);
+			}
+		}
+	}
+	
+	
+	private static class KeepWordsTooSmallException extends Exception {}
 	
 	private static class FormatConverter {
 
@@ -120,20 +187,22 @@ public class JsonToCorrLDA {
 			this.keepWords = keepWords;
 		}
 
-		public void convert(BufferedWriter docWriter, BufferedWriter vocabWriter, BufferedWriter labelWriter) throws IOException {
+		public void convert(BufferedWriter docWriter, BufferedWriter vocabWriter, BufferedWriter labelWriter) throws IOException, KeepWordsTooSmallException {
 
 			// Get vocabularies into maps. 
 			int i = 0;
 			int j = 0;
 			for(Article a : docs) {
 
-				List<String> abstractWords = abstractWords(a.abstractText);				
+				List<String> abstractWords = abstractWords(a.abstractText);	
+				boolean allWordsRejected = true;
 				for(String w : abstractWords) {
 
-					if(Stopwords.stopwords.contains(w) || w.length() < 2 || (!keepWords.contains(w))) {
+					if(Stopwords.stopwords.contains(w) || w.length() < 3 || (!keepWords.contains(w))) {
 						continue;
 					}
 
+					allWordsRejected = false;
 					Integer id = vocab.get(w);
 					if(id == null) {
 						vocab.put(w,  i);
@@ -143,6 +212,9 @@ public class JsonToCorrLDA {
 					
 					docWriter.write(id + " ");
 					
+				}
+				if(allWordsRejected) {
+					throw new KeepWordsTooSmallException();
 				}
 				docWriter.newLine();
 

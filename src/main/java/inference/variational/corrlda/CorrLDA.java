@@ -3,6 +3,7 @@ package inference.variational.corrlda;
 import inference.variational.common.AlgorithmParameters;
 import inference.variational.common.MatrixFunctions;
 import inference.variational.corrlda.CorrLDAdata.Document;
+import inference.variational.corrlda.ResultViewer.LabelValue;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -174,9 +175,12 @@ public class CorrLDA implements Serializable {
 		ResultViewer viewer = new ResultViewer(corrLDA.vocabFilename, corrLDA.labelFilename);
 		viewer.loadDictionaries();
 
+		
 		for(int docid = 1 + holdoutIndex; docid < 100 + holdoutIndex; docid++) {
+			System.out.println();
 			viewer.viewTrueLabels(corrLDA.dat.docs.get(docid));
-			viewer.viewLabelPrediction(predictor.labelPrediction(docid));
+			List<LabelValue> topLabels = viewer.viewLabelPrediction(predictor.labelPrediction(docid));
+			viewer.viewNumberMatching(corrLDA.dat.docs.get(docid), topLabels);
 		}
 		
 		viewer.view(corrLDA);
