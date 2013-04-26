@@ -7,8 +7,6 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 
-import com.google.gson.Gson;
-
 public class BreakDataSet {
 
 	/**
@@ -17,7 +15,6 @@ public class BreakDataSet {
 	 */
 	public static void main(String[] args) {
 		
-		Gson gson = new Gson();
 		BufferedWriter writer = null;
 		BufferedReader reader = null;
 		
@@ -47,6 +44,9 @@ public class BreakDataSet {
 					fileno++;
 					if(fileno > totalNumberOfFiles) break;
 				} else {
+					if(writer == null) {
+						throw new RuntimeException("writer shouldnt be null here.");
+					}
 					writer.write(",\n");
 				}
 				

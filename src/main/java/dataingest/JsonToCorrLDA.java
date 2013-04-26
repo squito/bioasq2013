@@ -1,9 +1,9 @@
 package dataingest;
 
-import java.io.BufferedReader;
+import inference.variational.corrlda.CorrLDA;
+
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,28 +15,90 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import com.google.gson.Gson;
+import com.martiansoftware.jsap.FlaggedOption;
+import com.martiansoftware.jsap.JSAP;
+import com.martiansoftware.jsap.JSAPException;
+import com.martiansoftware.jsap.JSAPResult;
+import com.martiansoftware.jsap.Parameter;
+import com.martiansoftware.jsap.SimpleJSAP;
 
 public class JsonToCorrLDA {
 
-	public static void main(String[] args) throws KeepWordsTooSmallException {
+	public static void main(String[] args) throws KeepWordsTooSmallException, JSAPException {
 
-		int numberArticlesToRead = Integer.parseInt(args[4]);
-		Gson gson = new Gson();
+		SimpleJSAP jsap = new SimpleJSAP( CorrLDA.class.getName(), "Launches correspondence LDA.",
+	            new Parameter[] {
+	                new FlaggedOption("jsonFilename")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("jsonFilename")
+	                .setHelp("Filename of json file we will read from."),	
+	                new FlaggedOption("docFilename")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("docFilename")
+	                .setHelp("Filename of document file we will write."),
+	                new FlaggedOption("vocabFilename")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("vocabFilename")
+	                .setHelp("Filename of vocab file we will write."),
+	                new FlaggedOption("labelFilename")
+	                .setStringParser(JSAP.STRING_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("labelFilename")
+	                .setHelp("Filename of label file we will write."),
+	                new FlaggedOption("numberArticles")
+	                .setStringParser(JSAP.INTEGER_PARSER)
+	                .setRequired(true)
+	                .setLongFlag("numberArticles")
+	                .setHelp("Number of articles to read."),
+	                new FlaggedOption("frequencyThreshold")
+	                .setStringParser(JSAP.INTEGER_PARSER)
+	                .setRequired(false)
+	                .setDefault("0")
+	                .setLongFlag("frequencyThreshold")
+	                .setHelp("Threshold on corpus word frequency."),
+	                new FlaggedOption("tfidfThreshold")
+	                .setStringParser(JSAP.DOUBLE_PARSER)
+	                .setRequired(false)
+	                .setDefault("13.0")
+	                .setLongFlag("tfidfThreshold")
+	                .setHelp("Threshold on tfidf word frequency.")
+	                }
+		);
+		
+		JSAPResult config = jsap.parse(args);    
+        if ( jsap.messagePrinted() ) System.exit( 1 );
+		
+		String jsonFilename = config.getString("jsonFilename");
+		String docFilename = config.getString("docFilename");
+		String vocabFilename = config.getString("vocabFilename");
+		String labelFilename = config.getString("labelFilename");
+		Integer numberArticlesToRead = config.getInt("numberArticles");
+		Integer frequencyThreshold = config.getInt("frequencyThreshold");
+		Double tfidfThreshold = config.getDouble("tfidfThreshold");
+        
 		BufferedWriter docWriter = null;
 		BufferedWriter vocabWriter = null;
 		BufferedWriter labelWriter = null;
 
-		BioasqReader bioasqReader = new BioasqReader(args[0], numberArticlesToRead);
+		BioasqReader bioasqReader = new BioasqReader(jsonFilename, numberArticlesToRead);
 		List<Article> documents = bioasqReader.read();
 
 		try {
-			docWriter = new BufferedWriter(new FileWriter(args[1]));
-			vocabWriter = new BufferedWriter(new FileWriter(args[2]));
-			labelWriter = new BufferedWriter(new FileWriter(args[3]));	
+			docWriter = new BufferedWriter(new FileWriter(docFilename));
+			vocabWriter = new BufferedWriter(new FileWriter(vocabFilename));
+			labelWriter = new BufferedWriter(new FileWriter(labelFilename));	
 			KeepWordsIdentifier identifier = new KeepWordsIdentifier(documents);
-//			Set<String> keepWords = identifier.identifyHighFreq(20);
-			Set<String> keepWords = identifier.identifyTfidf(13.0);
+			Set<String> keepWords = null;
+			if(frequencyThreshold > 0) {
+				keepWords = identifier.identifyHighFreq(frequencyThreshold);
+			} 
+			if(tfidfThreshold > 0) {
+				keepWords = intersection(identifier.identifyTfidf(tfidfThreshold), keepWords);
+			}
+			
 			FormatConverter converter = new FormatConverter(documents, keepWords);
 			converter.convert(docWriter, vocabWriter, labelWriter);
 
@@ -68,11 +130,32 @@ public class JsonToCorrLDA {
 	}
 
 
+	// Return intersection between two sets. Intersection between null and null will be null,
+	// intersection between null and non-null will be non-null, and intersection between two non-nulls
+	// will be their intersection. 
+	private static <T> Set<T> intersection(Set<T> set1, Set<T> set2) {
+		Set<T> set = new HashSet<T>();				
+		if(set1 == null && set2 == null) {
+			return null;  // Return null if both are null. 
+		}
+		if(set1 == null) {
+			return set2;
+		} 
+		if(set2 == null) {
+			return set1;
+		}
+		for(T t : set2) {
+			if(set1.contains(t)) {
+				set.add(t);
+			}
+		}
+		return set;
+	}
+	
+	
 	private static class KeepWordsIdentifier {
 	
 		List<Article> docs;
-		int threshold;
-		double tfidfThreshold;
 		private Map<String, Integer> totalFreq;  // Total number of times word appears anywhere.
 		private Map<String, Integer> docFreq;    // Number of documents that have the word.
 		private Map<String, Double> idf;        // Inverse doc freq = log(D/docFreq).
@@ -85,7 +168,6 @@ public class JsonToCorrLDA {
 
 		protected Set<String> identifyHighFreq(int threshold) {
 			
-			this.threshold = threshold;
 			computeCounts();
 			Set<String> keepWords = new HashSet<String>();
 			for(Entry<String, Integer> e : totalFreq.entrySet()) {
@@ -103,7 +185,6 @@ public class JsonToCorrLDA {
 		
 		protected Set<String> identifyTfidf(double tfidfThreshold) {
 			
-			this.tfidfThreshold = tfidfThreshold;
 			computeCounts();
 			Set<String> keepWords = new HashSet<String>();
 			for(Entry<String, Double> e : maxTfIdf.entrySet()) {
@@ -161,7 +242,7 @@ public class JsonToCorrLDA {
 		
 	}
 	
-	private static void accumulateMap(Iterable<String> iterable, Map<String, Integer> map) {
+	static void accumulateMap(Iterable<String> iterable, Map<String, Integer> map) {
 		for(String s : iterable) {
 			Integer n = map.get(s);
 			if(n == null) {
@@ -173,7 +254,9 @@ public class JsonToCorrLDA {
 	}
 	
 	
-	private static class KeepWordsTooSmallException extends Exception {}
+	private static class KeepWordsTooSmallException extends Exception {
+		public KeepWordsTooSmallException() {}
+	}
 	
 	private static class FormatConverter {
 
@@ -241,7 +324,7 @@ public class JsonToCorrLDA {
 		}
 
 		
-		private void writeVocab(BufferedWriter bw, LinkedHashMap<String, Integer> vocab) throws IOException {
+		private static void writeVocab(BufferedWriter bw, LinkedHashMap<String, Integer> vocab) throws IOException {
 
 			for(String w : vocab.keySet()) {
 				bw.write(w);
@@ -249,9 +332,11 @@ public class JsonToCorrLDA {
 			}
 		}
 
+		
+		
 	}
 
-	private static List<String> abstractWords(String abstractText) {
+	static List<String> abstractWords(String abstractText) {
 
 		String [] strings = abstractText.toLowerCase().replaceAll("[^A-Za-z0-9 ]", "").split(" ");
 		List<String> abstractWords = new ArrayList<String>();

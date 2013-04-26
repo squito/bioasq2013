@@ -1,7 +1,6 @@
 package inference.variational.corrlda;
 
 import inference.variational.common.Normalizer;
-import inference.variational.corrlda.CorrLDAdata.Document;
 
 public class CorrLDApredictor {
 

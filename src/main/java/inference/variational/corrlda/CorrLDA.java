@@ -1,12 +1,9 @@
 package inference.variational.corrlda;
 
 import inference.variational.common.AlgorithmParameters;
-import inference.variational.common.MatrixFunctions;
 import inference.variational.corrlda.CorrLDAdata.Document;
 import inference.variational.corrlda.ResultViewer.LabelValue;
-
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -18,14 +15,12 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
 import com.martiansoftware.jsap.FlaggedOption;
 import com.martiansoftware.jsap.JSAP;
 import com.martiansoftware.jsap.JSAPException;
 import com.martiansoftware.jsap.JSAPResult;
 import com.martiansoftware.jsap.Parameter;
 import com.martiansoftware.jsap.SimpleJSAP;
-import com.martiansoftware.jsap.UnflaggedOption;
 
 public class CorrLDA implements Serializable {
 

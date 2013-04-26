@@ -6,13 +6,10 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class ResultViewer {
 
@@ -84,7 +81,7 @@ public class ResultViewer {
 		}
 		
 		Collections.sort(list);
-		List<LabelValue> topLabels = list.subList(0, 10);
+		List<LabelValue> topLabels = list.subList(0, 15);
 		
 		for(LabelValue l : topLabels) {
 			System.out.println(String.format("%7.6f %s", l.value, l.label));

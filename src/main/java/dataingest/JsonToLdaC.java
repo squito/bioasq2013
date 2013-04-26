@@ -1,19 +1,13 @@
 package dataingest;
-import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map.Entry;
-
-import com.google.gson.Gson;
 
 /**
  * Convert the Bioasq json file into lda-c format described here:
@@ -46,7 +40,6 @@ public class JsonToLdaC {
 	public static void main(String[] args) {
 		
 		int numberArticlesToRead = Integer.parseInt(args[4]);
-		Gson gson = new Gson();
 		BufferedWriter bw = null;
 		BufferedWriter vocabWriter = null;
 		BufferedWriter labelWriter = null;
@@ -155,7 +148,7 @@ public class JsonToLdaC {
 			
 		}
 		
-		private List<String> abstractWords(String abstractText) {
+		private static List<String> abstractWords(String abstractText) {
 			
 			String [] strings = abstractText.toLowerCase().replaceAll("[^A-Za-z0-9 ]", "").split(" ");
 			List<String> abstractWords = new ArrayList<String>();
@@ -166,7 +159,7 @@ public class JsonToLdaC {
 			return abstractWords;
 		}
 		
-		private List<String> labelWords(List<String> meshMajor) {
+		private static List<String> labelWords(List<String> meshMajor) {
 			
 			List<String> newWords = new ArrayList<String>();
 			for(String s : meshMajor) {
@@ -177,7 +170,7 @@ public class JsonToLdaC {
 		}
 		
 	
-		private String ldaC(HashMap<String, Integer> vocab, HashMap<String, Integer> labelVocab, List<String> words, List<String> labels) {
+		private static String ldaC(HashMap<String, Integer> vocab, HashMap<String, Integer> labelVocab, List<String> words, List<String> labels) {
 		
 			String s = words.size() + " ";
 			for(String w : words) {
@@ -198,7 +191,7 @@ public class JsonToLdaC {
 			return s;
 		}
 
-		private void writeVocab(BufferedWriter bw, LinkedHashMap<String, Integer> vocab) throws IOException {
+		private static void writeVocab(BufferedWriter bw, LinkedHashMap<String, Integer> vocab) throws IOException {
 
 			for(String w : vocab.keySet()) {
 				bw.write(w);

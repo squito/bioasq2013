@@ -5,14 +5,7 @@ import inference.variational.common.MatrixFunctions;
 import inference.variational.common.Normalizer;
 import inference.variational.corrlda.CorrLDAdata.Document;
 
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 import org.apache.commons.math3.special.Gamma;
@@ -90,7 +83,7 @@ public class CorrLDAstate implements Serializable {
 	
 	protected void computeObjective() {
 		
-		double term1 = (double)dat.D * Gamma.logGamma( MatrixFunctions.sum(alpha) );
+		double term1 = dat.D * Gamma.logGamma( MatrixFunctions.sum(alpha) );
 
 		double term2 = 0;
 		for(int i=0; i < param.K; i++) {
