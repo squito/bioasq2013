@@ -30,12 +30,14 @@ public class BioasqReader {
 		List<Article> documents = new ArrayList<Article>();
 
 		try {
+			
 			reader = new BufferedReader(new FileReader(filename));
-
-			reader.readLine(); // Skip very first line. 
+			reader.readLine();
+			
 			for(int i=0; i < numberArticlesToRead; i++) {
 				String line = reader.readLine();
-				if(line == null || line.equals("")) {
+				
+				if(line == null || line.equals("") || line.equals("]}")) {
 					System.out.println("End of input reached, " + i + " documents successfully read" );
 					break;
 				}
