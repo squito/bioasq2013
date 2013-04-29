@@ -35,7 +35,7 @@ public class CorrLDA implements Serializable {
 	
 	public CorrLDA() {}
 	
-	public CorrLDA(String corpusFilename, String vocabFilename, String labelFilename, String saveFilename, int vocabSize, int labelSize, int K, int maxIter, double tolerance) throws InputFormatException, IOException {
+	public CorrLDA(String corpusFilename, String vocabFilename, String labelFilename, String saveFilename, int vocabSize, int labelSize, int K, double eta, int maxIter, double tolerance) throws InputFormatException, IOException {
 
 		this.vocabFilename = vocabFilename;
 		this.labelFilename = labelFilename;
@@ -44,11 +44,10 @@ public class CorrLDA implements Serializable {
 		List<Document> documents = readCorpusFile(corpusFilename, vocabSize, labelSize);
 		Collections.shuffle(documents);
 		dat = new CorrLDAdata(documents, vocabSize, labelSize);
-		param = new CorrLDAparameters(K);
+		param = new CorrLDAparameters(K, eta);
 		algorithmParameters = new AlgorithmParameters(tolerance, maxIter, false);
 		state = new CorrLDAstate(dat, param, algorithmParameters);
-		
-		
+
 	}
 
 	protected void infer() {
@@ -92,6 +91,10 @@ public class CorrLDA implements Serializable {
 	                .setStringParser(JSAP.INTEGER_PARSER)	                
 	                .setLongFlag("K")
 	                .setHelp("Number of topics K"),
+	                new FlaggedOption("eta")
+	                .setStringParser(JSAP.DOUBLE_PARSER)	                
+	                .setLongFlag("eta")
+	                .setHelp("Dirichlet prior parameter on label distribution eta"),
 	                new FlaggedOption("modelFile")
 	                .setStringParser(JSAP.STRING_PARSER)
 	                .setLongFlag("modelFile")
@@ -122,10 +125,12 @@ public class CorrLDA implements Serializable {
 		String vocabFilename = config.getString("vocabFile");
 		String labelFilename = config.getString("labelFile");
 		Integer K = config.contains("K") ? config.getInt("K") : null;
+		Double eta = config.contains("eta") ? config.getDouble("eta") : null;
 		String modelFile = config.getString("modelFile");
         Double tol = config.getDouble("tolerance");
         Double holdoutFraction = (100 - config.getDouble("holdoutPercent"))/100.0;
         String saveFile = config.getString("saveFile");
+        
         
 		CorrLDA corrLDA = null;
 
@@ -134,8 +139,8 @@ public class CorrLDA implements Serializable {
 			corrLDA.algorithmParameters.maxIter = maxIter;
 		} else {
 
-			if(corpusFilename == null || vocabFilename == null || labelFilename == null || K == null) {
-				throw new RuntimeException("You need to pass a corpus, vocabFile, labelFile, and K");
+			if(corpusFilename == null || vocabFilename == null || labelFilename == null || K == null || eta == null) {
+				throw new RuntimeException("You need to pass a corpus, vocabFile, labelFile, K, and eta");
 			}
 			
 			int vocabSize = 0;
@@ -154,7 +159,7 @@ public class CorrLDA implements Serializable {
 			}
 			reader.close();
 
-			corrLDA = new CorrLDA(corpusFilename, vocabFilename, labelFilename, saveFile, vocabSize, labelSize, K, maxIter, tol);
+			corrLDA = new CorrLDA(corpusFilename, vocabFilename, labelFilename, saveFile, vocabSize, labelSize, K, eta, maxIter, tol);
 		}
 
 		
@@ -253,16 +258,18 @@ public class CorrLDA implements Serializable {
 				}
 
 				String [] stringLabels = labelLine.split("\\s+");
+				if(stringLabels[0].equals("")) {
+					stringLabels = new String[0];
+				}
 				int [] labels = new int[stringLabels.length];
 				for(int i=0; i < stringLabels.length; i++) {
 					labels[i] = Integer.parseInt(stringLabels[i]);
-					
+
 					if(labels[i] >= labelSize) {
 						System.out.println("i: " + i + " labels[i]: " + labels[i] + " labelSize: " + labelSize);
 						throw new RuntimeException("You have a label in your document that has index bigger than the number of labels you know about.");
 					}
 				}
-
 				// Add to documents.
 				documents.add(new Document(words, labels));
 

@@ -21,6 +21,7 @@ public class CorrLDAstate implements Serializable {
 	double [][][] lambda; // variational multinomial for y.  D x Nd x Md
 	double [][] pi; // parameter for labels.  K x Vs
 	double [][] beta; // parameter for words. K x Vt
+	double [][] eLogBeta; // E[log(beta)]. 
 	double [] alpha; // dirichlet parameter for topics.  K
 	double objective = Double.NEGATIVE_INFINITY; // The lower bound we are maximizing. 
 	
@@ -123,7 +124,7 @@ public class CorrLDAstate implements Serializable {
 			for(int n=0; n < dat.Nd[d]; n++) {
 				for(int i=0; i < param.K; i++) {
 					for(int m=0; m < dat.Md[d]; m++) {
-						term6 += phi[d][m][i] * lambda[d][n][m] * Math.log( beta[i][dat.docs.get(d).labels[n]] );
+						term6 += phi[d][m][i] * lambda[d][n][m] * eLogBeta[i][dat.docs.get(d).labels[n]];
 					}
 				}
 			}
@@ -187,8 +188,10 @@ public class CorrLDAstate implements Serializable {
 	
 	
 	private void computeBeta() {
+				
+		// rho in the paper is beta. 
 		for(int i=0; i < param.K; i++) {
-			beta[i] = new double[dat.Vt]; // Clear beta[i].
+			beta[i] = new double[dat.Vt]; // Clear beta[i].			
 			for(int d=0; d < holdoutIndex; d++) {	
 				
 				Document doc = dat.docs.get(d);
@@ -197,10 +200,26 @@ public class CorrLDAstate implements Serializable {
 				for(int n=0; n < dat.Nd[d]; n++) {
 					for(int m=0; m < dat.Md[d]; m++) {
 						beta[i][doc.labels[n]] += phi[d][m][i] * lam[n][m];
+						if(Double.isNaN( beta[i][doc.labels[n]] )) {
+							System.out.println(String.format("beta[%d][%d] is NaN", i, doc.labels[n]));
+							System.out.println(String.format("phi[%d][%d][%d] is %f", d, m, i, phi[d][m][i]));
+							System.out.println(String.format("lam[%d][%d] is %f", n, m, lam[n][m]));
+							throw new RuntimeException("beta is NaN");
+						}
 					}
 				}
 			}
-			beta[i] = Normalizer.normalize(beta[i]);
+			
+			double sumBeta = 0;
+			for(int j=0; j < dat.Vt; j++) {
+				beta[i][j] = param.eta + beta[i][j];
+				sumBeta += beta[i][j];
+			}
+			double dg = Gamma.digamma(sumBeta);
+			for(int j=0; j < dat.Vt; j++) {
+				eLogBeta[i][j] = Gamma.digamma(beta[i][j]) - dg;
+			}
+			
 		}
 		
 	}
@@ -230,13 +249,12 @@ public class CorrLDAstate implements Serializable {
 					
 					double sm = 0;
 					for(int i=0; i < param.K; i++) {
-						sm += phi[d][m][i] * Math.log(beta[i][doc.labels[n]]);
+						if(phi[d][m][i] != 0) {  // When phi is zero here, it doesn't matter that beta might be zero. 
+							sm += phi[d][m][i] * eLogBeta[i][doc.labels[n]];
+						}
 					}
-					
 					lambda[d][n][m] = sm;
-					
 				}
-				
 				lambda[d][n] = Normalizer.normalizeFromLog(lambda[d][n]);
 			}
 		}
@@ -257,12 +275,20 @@ public class CorrLDAstate implements Serializable {
 					double sm = 0;
 					if(d < holdoutIndex) {
 						for(int n=0; n < dat.Nd[d]; n++) {
-							sm += lam[n][m] * Math.log(beta[i][doc.labels[n]]);
+							sm += lam[n][m] * eLogBeta[i][doc.labels[n]];
 						}
 					}
 					
 					try {
 						phi[d][m][i] = Math.log( pi[i][doc.words[m]]) + Gamma.digamma(gam[i]) - Gamma.digamma(sumGam) + sm;
+						if(Double.isNaN( phi[d][m][i] )) {
+							System.out.println(String.format("phi[%d][%d][%d] is NaN", d, m, i));
+							System.out.println(String.format("pi[%d][%d] is %f", i, doc.words[m], pi[i][doc.words[m]]));
+							System.out.println(String.format("gamma[%d] is %f", i, gam[i]));
+							System.out.println(String.format("sumGamma is %f", sumGam));
+							System.out.println(String.format("sm is %f", sm));
+							throw new RuntimeException("phi has NaN");
+						}
 					} catch (StackOverflowError e) {
 						System.out.println(" Stack overflow error. Trying to take digamma(" + gam[i] + ") and digamma(" + sumGam + ").  i = " + i );
 						throw new StackOverflowError();
@@ -288,6 +314,10 @@ public class CorrLDAstate implements Serializable {
 				}
 				
 				gamma[d][i] = alpha[i] + sm;
+				if(Double.isNaN( gamma[d][i] )) {
+					System.out.println(String.format("gamma[%d][%d] is NaN", d, i));
+					throw new RuntimeException("gamma has NaN");
+				}
 				sumGamma[d] += gamma[d][i];
 			}
 			
@@ -348,9 +378,18 @@ public class CorrLDAstate implements Serializable {
 	}
 	private void initializeBeta() {
 		beta = new double[param.K][dat.Vt];
+		double [] sumBeta = new double[param.K];
 		for(int k=0; k < param.K; k++) {
 			for(int i=0; i < dat.Vt; i++) {
-				beta[k][i] = 1.0/dat.Vt;
+				beta[k][i] = param.eta + 1.0/dat.Vt;
+				sumBeta[k] += beta[k][i];
+			}
+		}
+		eLogBeta = new double[param.K][dat.Vt];
+		for(int k=0; k < param.K; k++) {
+			double dg = Gamma.digamma(sumBeta[k]);
+			for(int i=0; i < dat.Vt; i++) {
+				eLogBeta[k][i] = Gamma.digamma(beta[k][i]) - dg;
 			}
 		}
 	}
@@ -377,9 +416,14 @@ public class CorrLDAstate implements Serializable {
 		return pi;
 	}
 	
-	public double [][] getBeta() {
-		return beta;
+	public double [][] getLabelDistribution() {
+		double[][] distribution = new double[param.K][dat.Vt];
+		for(int i=0; i < param.K; i++) {
+			distribution[i] = Normalizer.normalizeFromLog(eLogBeta[i]);
+		}
+		return distribution;
 	}
+	
 	
 	public double [] getAlpha() {
 		return alpha;

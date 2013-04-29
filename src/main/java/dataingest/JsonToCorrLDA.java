@@ -64,7 +64,13 @@ public class JsonToCorrLDA {
 	                .setRequired(false)
 	                .setDefault("13.0")
 	                .setLongFlag("tfidfThreshold")
-	                .setHelp("Threshold on tfidf word frequency.")
+	                .setHelp("Threshold on tfidf word frequency."),
+	                new FlaggedOption("tfidfLabelThreshold")
+	                .setStringParser(JSAP.DOUBLE_PARSER)
+	                .setRequired(false)
+	                .setDefault("13.0")
+	                .setLongFlag("tfidfLabelThreshold")
+	                .setHelp("Threshold on tfidf labels.")
 	                }
 		);
 		
@@ -78,7 +84,8 @@ public class JsonToCorrLDA {
 		Integer numberArticlesToRead = config.getInt("numberArticles");
 		Integer frequencyThreshold = config.getInt("frequencyThreshold");
 		Double tfidfThreshold = config.getDouble("tfidfThreshold");
-        
+        Double tfidfLabelThreshold = config.getDouble("tfidfLabelThreshold");
+		
 		BufferedWriter docWriter = null;
 		BufferedWriter vocabWriter = null;
 		BufferedWriter labelWriter = null;
@@ -93,13 +100,22 @@ public class JsonToCorrLDA {
 			KeepWordsIdentifier identifier = new KeepWordsIdentifier(documents);
 			Set<String> keepWords = null;
 			if(frequencyThreshold > 0) {
-				keepWords = identifier.identifyHighFreq(frequencyThreshold);
+				keepWords = identifier.identifyHighFreqAbstractWords(frequencyThreshold);
 			} 
 			if(tfidfThreshold > 0) {
-				keepWords = intersection(identifier.identifyTfidf(tfidfThreshold), keepWords);
+				keepWords = intersection(identifier.identifyTfidfAbstractWords(tfidfThreshold), keepWords);
 			}
+			if(keepWords == null) {
+				throw new RuntimeException("keepWords is null");
+			}
+
+			Set<String>keepLabels = null;
+			keepLabels = identifier.identifyTfidfLabels(tfidfLabelThreshold);
 			
-			FormatConverter converter = new FormatConverter(documents, keepWords);
+			System.out.println("Final kept words : " + keepWords.size());
+			System.out.println("Final kept labels: " + keepLabels.size());
+			
+			FormatConverter converter = new FormatConverter(documents, keepWords, keepLabels);
 			converter.convert(docWriter, vocabWriter, labelWriter);
 
 		} catch (FileNotFoundException e) {
@@ -152,91 +168,136 @@ public class JsonToCorrLDA {
 		return set;
 	}
 	
+	private static class Tfidf {
+		
+		public Tfidf(WordExtractor extractor) {
+			this.extractor = extractor;
+		}
+		Map<String, Integer> totalFreq;  // Total number of times word appears anywhere.
+		Map<String, Integer> docFreq;    // Number of documents that have the word.
+		Map<String, Double> idf;        // Inverse doc freq = log(D/docFreq).
+		Map<String, Integer> maxTf;     // Maximum term frequency across all docs. 
+		Map<String, Double> maxTfIdf;   // Maximum tfidf across all docs. 
+		WordExtractor extractor;
+		
+	}
+	
+	private static interface WordExtractor {
+		List<String> extractWords(Article a);
+	}
+	
+	private static class AbstractWordExtractor implements WordExtractor {
+		public List<String> extractWords(Article a) {
+			return abstractWords(a.abstractText);
+		}
+	}
+	
+	private static class LabelWordExtractor implements WordExtractor {
+		public List<String> extractWords(Article a) {
+			return a.meshMajor;
+		}
+	}
 	
 	private static class KeepWordsIdentifier {
 	
 		List<Article> docs;
-		private Map<String, Integer> totalFreq;  // Total number of times word appears anywhere.
-		private Map<String, Integer> docFreq;    // Number of documents that have the word.
-		private Map<String, Double> idf;        // Inverse doc freq = log(D/docFreq).
-		private Map<String, Integer> maxTf;     // Maximum term frequency across all docs. 
-		private Map<String, Double> maxTfIdf;   // Maximum tfidf across all docs. 
+		Tfidf abstractTfdif = new Tfidf(new AbstractWordExtractor());
+		Tfidf labelsTfdif = new Tfidf(new LabelWordExtractor());
 		
 		public KeepWordsIdentifier(List<Article> docs) {
 			this.docs = docs;
 		}
 
-		protected Set<String> identifyHighFreq(int threshold) {
-			
-			computeCounts();
-			Set<String> keepWords = new HashSet<String>();
-			for(Entry<String, Integer> e : totalFreq.entrySet()) {
+		private Set<String> identifyHighFreq(Tfidf tfdif, int threshold) {
+			computeCounts(tfdif);
+			Set<String> set = new HashSet<String>();
+			for(Entry<String, Integer> e : tfdif.totalFreq.entrySet()) {
 				if(e.getValue() >= threshold) {
-					keepWords.add(e.getKey());
+					set.add(e.getKey());
 				}
 			}
+			return set;
+		}
+		
+		protected Set<String> identifyHighFreqAbstractWords(int threshold) {
 			
-			System.out.println("Total number of unique words: " + totalFreq.size());
-			System.out.println("Total kept words with threshold " + threshold + " : " + keepWords.size()); 
-			 
+			Set<String> keepWords = identifyHighFreq(abstractTfdif, threshold);
+			System.out.println("Total number of words meeting frequency threshold " + threshold + " : " + keepWords.size()); 
 			return keepWords;
 			
 		}
 		
-		protected Set<String> identifyTfidf(double tfidfThreshold) {
+		public Set<String> identifyHighFreqLabels(int threshold) {
+
+			Set<String> keepLabels = identifyHighFreq(labelsTfdif, threshold);
+			System.out.println("Total number of labels meeting frequency threshold " + threshold + " : " + keepLabels.size()); 
+			return keepLabels;
+	
+		}
+		
+		protected Set<String> identifyTfidfAbstractWords(double threshold) {
 			
-			computeCounts();
-			Set<String> keepWords = new HashSet<String>();
-			for(Entry<String, Double> e : maxTfIdf.entrySet()) {
-				if(e.getValue() >= tfidfThreshold) {
-					keepWords.add(e.getKey());
-				}
-			}
-			
-			System.out.println("Total number of unique words: " + totalFreq.size());
-			System.out.println("Total kept words with tfidf threshold " + tfidfThreshold + " : " + keepWords.size()); 
-			 
+			Set<String> keepWords = identifyTfidf(abstractTfdif, threshold);
+			System.out.println("Total number of words meeting tfidf threshold " + threshold + " : " + keepWords.size()); 
 			return keepWords;
 			
 		}
 		
+		public Set<String> identifyTfidfLabels(double threshold) {
+
+			Set<String> keepLabels = identifyTfidf(labelsTfdif, threshold);
+			System.out.println("Total number of labels meeting tfidf threshold " + threshold + " : " + keepLabels.size()); 
+			return keepLabels;
+
+		}
 		
+		private Set<String> identifyTfidf(Tfidf tfidf, double threshold) {
+			computeCounts(tfidf);
+			Set<String> set = new HashSet<String>();
+			for(Entry<String, Double> e : tfidf.maxTfIdf.entrySet()) {
+				if(e.getValue() >= threshold) {
+					set.add(e.getKey());
+				}
+			}
+			return set;
+		}
 		
-		private void computeCounts() {
+		private void computeCounts(Tfidf tfidf) {
 			
-			totalFreq = new HashMap<String, Integer>();
-			docFreq = new HashMap<String, Integer>();			
-			idf = new HashMap<String, Double>();
-			maxTf = new HashMap<String, Integer>();
-			maxTfIdf = new HashMap<String, Double>();
+			tfidf.totalFreq = new HashMap<String, Integer>();
+			tfidf.docFreq = new HashMap<String, Integer>();			
+			tfidf.idf = new HashMap<String, Double>();
+			tfidf.maxTf = new HashMap<String, Integer>();
+			tfidf.maxTfIdf = new HashMap<String, Double>();
 			
 			for(Article a : docs) {
 				
-				List<String> words = abstractWords(a.abstractText);
+				List<String> words = tfidf.extractor.extractWords(a);
 
-				accumulateMap(new HashSet<String>(words), docFreq);
-				accumulateMap(words, totalFreq);	
+				accumulateMap(new HashSet<String>(words), tfidf.docFreq);
+				accumulateMap(words, tfidf.totalFreq);	
 																
 				Map<String, Integer> thisDoc = new HashMap<String, Integer>();
 				accumulateMap(words, thisDoc);
 				
 				for(Entry<String, Integer> e : thisDoc.entrySet()) {
-					Integer n = maxTf.get(e.getKey());
+					Integer n = tfidf.maxTf.get(e.getKey());
 					if(n == null || e.getValue() > n) {
-						maxTf.put(e.getKey(), e.getValue());
+						tfidf.maxTf.put(e.getKey(), e.getValue());
 					}
 				}
 				
 			}
 			
-			for(Entry<String, Integer> e : docFreq.entrySet()) {
-				idf.put(e.getKey(), Math.log( (double)docs.size()/e.getValue() )  );
+			for(Entry<String, Integer> e : tfidf.docFreq.entrySet()) {
+				tfidf.idf.put(e.getKey(), Math.log( (double)docs.size()/e.getValue() )  );
 			}
 			
-			for(Entry<String, Integer> e : maxTf.entrySet()) {
-				maxTfIdf.put(e.getKey(), e.getValue() * idf.get(e.getKey()));
+			for(Entry<String, Integer> e : tfidf.maxTf.entrySet()) {
+				tfidf.maxTfIdf.put(e.getKey(), e.getValue() * tfidf.idf.get(e.getKey()));
 			}
 			
+			System.out.println("Total number of unique tokens: " + tfidf.totalFreq.size());
 			
 		}
 		
@@ -264,10 +325,12 @@ public class JsonToCorrLDA {
 		LinkedHashMap<String, Integer> labelVocab = new LinkedHashMap<String, Integer>();
 		List<Article> docs;		
 		Set<String>keepWords;
+		Set<String>keepLabels;
 
-		public FormatConverter(List<Article> docs, Set<String> keepWords) {
+		public FormatConverter(List<Article> docs, Set<String> keepWords, Set<String> keepLabels) {
 			this.docs = docs;
 			this.keepWords = keepWords;
+			this.keepLabels = keepLabels;
 		}
 
 		public void convert(BufferedWriter docWriter, BufferedWriter vocabWriter, BufferedWriter labelWriter) throws IOException, KeepWordsTooSmallException {
@@ -275,6 +338,7 @@ public class JsonToCorrLDA {
 			// Get vocabularies into maps. 
 			int i = 0;
 			int j = 0;
+			int numDocsWithAllLabelsFiltered = 0;
 			for(Article a : docs) {
 
 				List<String> abstractWords = abstractWords(a.abstractText);	
@@ -301,7 +365,14 @@ public class JsonToCorrLDA {
 				}
 				docWriter.newLine();
 
+				boolean allLabelsRejected = true;
 				for(String l : a.meshMajor) {
+					
+					if(!keepLabels.contains(l)) {
+						continue;
+					}
+					
+					allLabelsRejected = false;
 					Integer id = labelVocab.get(l);
 					if(id == null) {
 						labelVocab.put(l, j);
@@ -311,11 +382,20 @@ public class JsonToCorrLDA {
 					
 					docWriter.write(id + " ");
 				}
+				if(allLabelsRejected) {					
+					numDocsWithAllLabelsFiltered++;
+					// throw new KeepWordsTooSmallException();
+				}
 				docWriter.newLine();
 				
 			}
 
-			System.out.println("Successfully wrote document file.");
+			if(numDocsWithAllLabelsFiltered > 0) {
+				System.out.println("Warning. All labels for some documents have been removed.");
+				System.out.println("Number of docs with all labels filtered: " + numDocsWithAllLabelsFiltered);
+			}
+				
+			System.out.println("Successfully wrote document file. Total docs: " + docs.size());
 
 			writeVocab(vocabWriter, vocab);
 			writeVocab(labelWriter, labelVocab);

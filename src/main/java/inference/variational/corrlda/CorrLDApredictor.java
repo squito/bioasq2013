@@ -13,7 +13,7 @@ public class CorrLDApredictor {
 	public double[] labelPrediction(int docid) {
 		
 		double [][] phi = state.getPhi()[docid]; 
-		double [][] beta = state.getBeta();
+		double [][] beta = state.getLabelDistribution();
 
 		int K = beta.length;
 		int Vt = beta[0].length;

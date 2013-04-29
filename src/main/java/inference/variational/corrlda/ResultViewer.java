@@ -54,8 +54,7 @@ public class ResultViewer {
 	
 	public void view(CorrLDA corrLDA) {
 		
-		System.out.println("--- pi ---");
-		double [][] pi = corrLDA.state.getBeta();
+		double [][] pi = corrLDA.state.getLabelDistribution();
 		
 		ArrayList<ArrayList<LabelValue>> toSort = new ArrayList<ArrayList<LabelValue>>(); 
 		for(int i=0; i < corrLDA.param.K; i++) {
@@ -66,7 +65,7 @@ public class ResultViewer {
 			
 			Collections.sort(toSort.get(i));
 			System.out.println("----");
-			for(int j=0; j < 30; j++) {
+			for(int j=0; j < Math.min(corrLDA.dat.Vt, 30); j++) {
 				System.out.print(String.format("%d %7.6f %s\n", i, toSort.get(i).get(j).value, toSort.get(i).get(j).label));
 			}
 		}
@@ -81,8 +80,13 @@ public class ResultViewer {
 		}
 		
 		Collections.sort(list);
-		List<LabelValue> topLabels = list.subList(0, 15);
-		
+		List<LabelValue> topLabels = null;
+		if(list.size() > 15) {
+			topLabels = list.subList(0, 15);
+		} else {
+			topLabels = list;
+		}
+			
 		for(LabelValue l : topLabels) {
 			System.out.println(String.format("%7.6f %s", l.value, l.label));
 		}
