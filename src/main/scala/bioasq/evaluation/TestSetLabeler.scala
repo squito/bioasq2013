@@ -80,9 +80,7 @@ object TestSetLabeler extends ArgMain[TestSetLabelerArgs] with Logging {
   }
 }
 
-class TestSetLabelerArgs extends FieldArgs {
+class TestSetLabelerArgs extends MatrixLoaderArgs {
   var testSet: String = _
-  var featureSetName: String = _
   var systemName: String = _
-  var maxBytes: Long = 4e9.toLong //4GB
 }
